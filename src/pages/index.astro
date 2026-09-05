@@ -1,0 +1,89 @@
+---
+import SpaceCanvas from '../components/SpaceCanvas';
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout title="Gabriel Mandrake | Full Stack Developer">
+  <SpaceCanvas client:only="react" />
+  
+  <div class="fixed inset-0 pointer-events-none">
+    <div class="w-full h-screen flex flex-col justify-between p-6 md:p-12 pointer-events-auto">
+      <div class="grid grid-cols-12 gap-6 md:gap-12">
+        <div class="col-span-4 md:col-span-3 border-l border-white/10 pl-4 md:pl-6">
+          <p class="font-syne font-bold text-[10px] md:text-xs uppercase tracking-[0.2em] text-cyan-400/60 mb-3">
+            Portfolio
+          </p>
+          <h1 class="font-syne font-extrabold text-2xl md:text-4xl lg:text-5xl uppercase tracking-tight leading-[0.9] text-white">
+            Gabriel<br />Mandrake
+          </h1>
+        </div>
+        
+        <div class="col-span-4 md:col-span-6 flex items-center justify-center">
+          <div class="text-center space-y-1">
+            <p class="font-inter font-light text-xs md:text-sm text-gray-400 tracking-wide">
+              Full Stack Developer
+            </p>
+            <p class="font-inter font-light text-xs md:text-sm text-gray-400 tracking-wide">
+              Creative Developer
+            </p>
+            <p class="font-inter font-light text-xs md:text-sm text-gray-400 tracking-wide">
+              Problem Solver
+            </p>
+          </div>
+        </div>
+        
+        <div class="col-span-4 md:col-span-3 border-r border-white/10 pr-4 md:pr-6 text-right">
+          <p class="font-syne font-bold text-[10px] md:text-xs uppercase tracking-[0.2em] text-cyan-400/60 mb-3">
+            Status
+          </p>
+          <p class="font-inter font-medium text-xs md:text-sm text-white/90">
+            Available for work
+          </p>
+          <p class="font-inter font-light text-[10px] md:text-xs text-gray-500 mt-1">
+            2024 — Present
+          </p>
+        </div>
+      </div>
+      
+      <div class="grid grid-cols-12 gap-6 md:gap-12 mt-auto">
+        <div class="col-span-4 md:col-span-3 border-l border-white/10 pl-4 md:pl-6">
+          <p class="font-syne font-bold text-[10px] md:text-xs uppercase tracking-[0.2em] text-cyan-400/60 mb-3">
+            Expertise
+          </p>
+          <div class="space-y-0.5">
+            <p class="font-inter font-light text-[10px] md:text-xs text-gray-400">React Three Fiber</p>
+            <p class="font-inter font-light text-[10px] md:text-xs text-gray-400">Three.js</p>
+            <p class="font-inter font-light text-[10px] md:text-xs text-gray-400">Astro</p>
+            <p class="font-inter font-light text-[10px] md:text-xs text-gray-400">GSAP</p>
+          </div>
+        </div>
+        
+        <div class="col-span-4 md:col-span-6 flex items-center justify-center">
+          <div class="flex gap-8">
+            <a href="#" class="font-inter font-medium text-xs md:text-sm text-white/60 hover:text-cyan-400 transition-colors duration-300">
+              GitHub
+            </a>
+            <a href="#" class="font-inter font-medium text-xs md:text-sm text-white/60 hover:text-cyan-400 transition-colors duration-300">
+              LinkedIn
+            </a>
+            <a href="#" class="font-inter font-medium text-xs md:text-sm text-white/60 hover:text-cyan-400 transition-colors duration-300">
+              Contact
+            </a>
+          </div>
+        </div>
+        
+        <div class="col-span-4 md:col-span-3 border-r border-white/10 pr-4 md:pr-6 text-right">
+          <p class="font-syne font-bold text-[10px] md:text-xs uppercase tracking-[0.2em] text-cyan-400/60 mb-3">
+            Location
+          </p>
+          <p class="font-inter font-medium text-xs md:text-sm text-white/90">
+            Worldwide
+          </p>
+          <p class="font-inter font-light text-[10px] md:text-xs text-gray-500 mt-1">
+            Remote Available
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</Layout>
