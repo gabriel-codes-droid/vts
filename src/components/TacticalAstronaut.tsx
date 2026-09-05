@@ -1,5 +1,6 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
+import { useFBX, useAnimations, useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
 
 type AnimationState = 'idle' | 'hopping' | 'launching' | 'flying' | 'landing' | 'seated';
@@ -12,18 +13,55 @@ interface TacticalAstronautProps {
   hopPositionRef?: React.MutableRefObject<THREE.Vector3>;
 }
 
-export default function TacticalAstronaut({ 
+export default function TacticalAstronaut({
   phase,
-  position = [0, 0, 0], 
+  position = [0, 0, 0],
   scale = 0.01,
   hopPoints = [[0, 0, 0]],
   hopPositionRef
 }: TacticalAstronautProps) {
   const group = useRef<THREE.Group>(null);
-  const [loaded, setLoaded] = useState(true);
+  const [loaded, setLoaded] = useState(false);
   const hopIndex = useRef(0);
   const hopStart = useRef<number | null>(null);
   const HOP_DURATION = 3.0;
+
+  const { scene: armor } = useGLTF('/models/demo_set_of_tactical_light_armor.glb');
+
+  const idleAnim = useFBX('/models/idle.fbx');
+  const jumpAnim = useFBX('/models/jump.fbx');
+  const flyingAnim = useFBX('/models/flying.fbx');
+  const landingAnim = useFBX('/models/landing.fbx');
+  const sittingAnim = useFBX('/models/sitting.fbx');
+
+  const animations = {
+    idle: idleAnim.animations[0],
+    hopping: jumpAnim.animations[0],
+    launching: flyingAnim.animations[0],
+    flying: flyingAnim.animations[0],
+    landing: landingAnim.animations[0],
+    seated: sittingAnim.animations[0],
+  };
+
+  const { actions } = useAnimations(Object.values(animations), group);
+
+  useEffect(() => {
+    if (!armor || !actions) return;
+    setLoaded(true);
+  }, [armor, actions]);
+
+  useEffect(() => {
+    if (!loaded || !actions) return;
+
+    Object.values(actions).forEach(action => {
+      action?.stop();
+    });
+
+    const currentAction = actions[phase];
+    if (currentAction) {
+      currentAction.reset().fadeIn(0.4).play();
+    }
+  }, [phase, loaded, actions]);
 
   useFrame((state) => {
     if (!group.current || !loaded) return;
@@ -75,10 +113,7 @@ export default function TacticalAstronaut({
 
   return (
     <group ref={group} position={position} scale={scale}>
-      <mesh>
-        <boxGeometry args={[1, 2, 0.5]} />
-        <meshStandardMaterial color="#3b82f6" roughness={0.3} metalness={0.7} />
-      </mesh>
+      <primitive object={armor} />
     </group>
   );
 }
