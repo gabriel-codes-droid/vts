@@ -1,12 +1,13 @@
 import { Canvas } from '@react-three/fiber';
-import { OrbitControls } from '@react-three/drei';
+import { OrbitControls, Environment } from '@react-three/drei';
 import { Suspense, useRef, useState, useEffect } from 'react';
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import * as THREE from 'three';
 import ControlCubeField from './ControlCubeField';
 import CustomStarField from './CustomStarField';
-import TacticalAstronaut from './TacticalAstronaut';
+import TacticalAstronaut from './TacticalAstronaut.jsx';
+import PlanetShowcase from './PlanetShowcase';
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -33,7 +34,10 @@ const SpaceCanvas = () => {
   const canvasRef = useRef();
   const scrollTrackRef = useRef(null);
   const [astronautPhase, setAstronautPhase] = useState('idle');
-  const [hopWaypoints, setHopWaypoints] = useState([[0, 0, 0]]);
+  const [journeyProgress, setJourneyProgress] = useState(0);
+  const [hopWaypoints] = useState([
+    [-1.6, -0.55, 0.1], [0.1, 0.35, -0.45], [1.8, -0.1, -0.15],
+  ]);
   const hopPositionRef = useRef(new THREE.Vector3());
 
   // Scroll drives the whole jump -> jetpack -> fly -> land -> sit sequence.
@@ -50,6 +54,7 @@ const SpaceCanvas = () => {
       end: 'bottom bottom',
       scrub: 1,
       onUpdate: (self) => {
+        setJourneyProgress(self.progress);
         setAstronautPhase(phaseForProgress(self.progress));
       },
     });
@@ -65,7 +70,12 @@ const SpaceCanvas = () => {
         <Canvas
           ref={canvasRef}
           camera={{ position: [0, 0, 6], fov: 45 }}
-          gl={{ antialias: true, alpha: true }}
+          gl={{
+            antialias: true,
+            alpha: true,
+            toneMapping: THREE.ACESFilmicToneMapping,
+            toneMappingExposure: 1.1,
+          }}
           dpr={[1, 2]}
           style={{ background: '#010103' }}
         >
@@ -74,28 +84,54 @@ const SpaceCanvas = () => {
           <pointLight position={[-10, -5, -10]} intensity={0.6} color="#3b82f6" distance={30} />
           <pointLight position={[10, 5, 10]} intensity={0.5} color="#8b5cf6" distance={25} />
 
+          {/* MeshTransmissionMaterial (the ControlCube glass shell) refracts
+              and reflects its *surroundings* — with nothing to reflect, it
+              has only the near-black canvas background to sample on any
+              side that isn't catching a direct specular highlight, which is
+              why the dark cubes were reading as flat black voids instead of
+              glass. A low-intensity environment gives it something to bend
+              light through, so the material actually looks like a material. */}
+          <Suspense fallback={null}><Environment files="/models/night-sky.exr" background={false} environmentIntensity={0.5} /></Suspense>
+
+          {/* Stars and cubes get their own Suspense boundary, separate from
+              the astronaut. TacticalAstronaut loads 6 async resources (1 GLB
+              + 5 FBX); React can only resolve one suspended resource per
+              render pass, so it re-suspends repeatedly while working through
+              them. A shared boundary would hide already-loaded stars/cubes
+              every time that happens — visible as a flash of content, then
+              blank, on loop. Isolating it means the background scene mounts
+              once and stays, regardless of how long the astronaut takes. */}
           <Suspense fallback={null}>
             <CustomStarField count={3000} radius={100} />
-
             <ControlCubeField />
+          </Suspense>
 
-            <TacticalAstronaut 
+          <Suspense fallback={null}>
+            <TacticalAstronaut
               phase={astronautPhase}
               position={[0, 0, 0]}
-              scale={0.012}
+              scale={1}
               hopPoints={hopWaypoints}
               hopPositionRef={hopPositionRef}
-            />
-
-            <OrbitControls
-              enableZoom={false}
-              enablePan={false}
-              maxPolarAngle={Math.PI / 2}
-              minPolarAngle={Math.PI / 3}
-              enableDamping={true}
-              dampingFactor={0.04}
+              journeyProgress={journeyProgress}
             />
           </Suspense>
+
+          <Suspense fallback={null}>
+            <PlanetShowcase
+              showMoon={astronautPhase === 'landing' || astronautPhase === 'seated'}
+              showPlanets={astronautPhase === 'seated'}
+            />
+          </Suspense>
+
+          <OrbitControls
+            enableZoom={false}
+            enablePan={false}
+            maxPolarAngle={Math.PI / 2}
+            minPolarAngle={Math.PI / 3}
+            enableDamping={true}
+            dampingFactor={0.04}
+          />
         </Canvas>
 
         {/* Small, unobtrusive progress readout so the phase is legible even
@@ -117,3 +153,6 @@ const SpaceCanvas = () => {
 };
 
 export default SpaceCanvas;
+
+
+
