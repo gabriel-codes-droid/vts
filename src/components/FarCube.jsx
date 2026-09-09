@@ -11,8 +11,7 @@ extend({ RoundedBoxGeometry });
 // detail wouldn't even read at that distance) would cost real frame rate
 // for no visible benefit. This uses plain standard/basic materials instead:
 // same dark-glass-with-glowing-core silhouette, a fraction of the GPU cost.
-const GLASS_COLOR = '#12293f';
-const CORE_COLOR = '#00cfff';
+const GLASS_COLOR = '#0A2235';
 
 const FarCube = ({
   position = [0, 0, 0],
@@ -39,17 +38,13 @@ const FarCube = ({
         <roundedBoxGeometry args={[1.3, 1.3, 1.3, 3, 0.1]} />
         <meshStandardMaterial
           color={GLASS_COLOR}
-          roughness={0.35}
-          metalness={0.15}
+          roughness={0.28}
+          metalness={0.2}
           transparent
-          opacity={0.55}
+          opacity={0.62}
           emissive={GLASS_COLOR}
-          emissiveIntensity={0.25}
+          emissiveIntensity={0.4}
         />
-      </mesh>
-      <mesh scale={0.42}>
-        <roundedBoxGeometry args={[1, 1, 1, 2, 0.08]} />
-        <meshBasicMaterial color={CORE_COLOR} transparent opacity={0.5} toneMapped={false} depthWrite={false} />
       </mesh>
     </group>
   );

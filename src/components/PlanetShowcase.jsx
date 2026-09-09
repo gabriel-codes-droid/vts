@@ -2,9 +2,14 @@ import { useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
+// Positioned *below* the astronaut's seated spot ([1.2, 0.05, -0.8] — see
+// SpaceCanvas's flight-lerp destination) and pulled much closer in Z (was
+// -7/-8.5, off in its own far background layer, disconnected from the
+// landing). The intended composition: astronaut sits at the moon's edge and
+// looks down at these floating below, not up/away at something distant.
 const PLANETS = [
-  { path: '/models/little_planet_earth.glb', position: [-3.6, 0.9, -7], scale: 1.4, tint: '#22d3ee' },
-  { path: '/models/planet_earth.glb', position: [0, 1.6, -8.5], scale: 1.15, tint: '#8b5cf6' },
+  { path: '/models/little_planet_earth.glb', position: [-0.4, -5.1, -1.6], scale: 1.1, tint: '#22d3ee' },
+  { path: '/models/planet_earth.glb', position: [2.1, -6.3, -2.1], scale: 0.95, tint: '#8b5cf6' },
 ];
 function PlanetModel({ path, position, scale, tint, index }) {
   const ref = useRef(null); const { scene } = useGLTF(path);
@@ -19,7 +24,7 @@ export default function PlanetShowcase({ showMoon, showPlanets }) {
     <group visible={showPlanets}>
       {PLANETS.map((planet, index) => <PlanetModel key={planet.path} {...planet} index={index} />)}
     </group>
-    <group visible={showMoon} position={[1.9, -2.35, -1.1]}>
+    <group visible={showMoon} position={[1.2, -2.35, -0.8]}>
       <primitive object={moonModel} />
       <pointLight color="#cbd5e1" intensity={0.9} distance={8} />
     </group>
