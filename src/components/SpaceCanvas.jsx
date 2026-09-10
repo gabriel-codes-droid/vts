@@ -8,6 +8,7 @@ import ControlCubeField from './ControlCubeField';
 import CustomStarField from './CustomStarField';
 import TacticalAstronaut from './TacticalAstronaut.jsx';
 import PlanetShowcase from './PlanetShowcase';
+import { HOP_WAYPOINTS } from './sceneConstants';
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -35,9 +36,7 @@ const SpaceCanvas = () => {
   const scrollTrackRef = useRef(null);
   const [astronautPhase, setAstronautPhase] = useState('idle');
   const [journeyProgress, setJourneyProgress] = useState(0);
-  const [hopWaypoints] = useState([
-    [-1.6, -0.55, 0.1], [0.1, 0.35, -0.45], [1.8, -0.1, -0.15],
-  ]);
+  const [hopWaypoints] = useState(HOP_WAYPOINTS);
   const hopPositionRef = useRef(new THREE.Vector3());
 
   // Scroll drives the whole jump -> jetpack -> fly -> land -> sit sequence.
@@ -76,7 +75,10 @@ const SpaceCanvas = () => {
             toneMapping: THREE.ACESFilmicToneMapping,
             toneMappingExposure: 1.1,
           }}
-          dpr={[1, 2]}
+          // Keep retina screens from rendering this multi-pass scene at 2x;
+          // the lower ceiling is a large frame-time win with little visual
+          // loss at the portfolio camera distance.
+          dpr={[1, 1.5]}
           style={{ background: '#010103' }}
         >
           <ambientLight intensity={0.4} color="#4a5568" />
@@ -101,9 +103,15 @@ const SpaceCanvas = () => {
               every time that happens — visible as a flash of content, then
               blank, on loop. Isolating it means the background scene mounts
               once and stays, regardless of how long the astronaut takes. */}
+          {/* Cube field only exists for the idle/hop/launch portion of the
+              journey — hidden from 'flying' onward so it doesn't visually
+              compete with the moon/planet scene the astronaut is arcing
+              toward (a direct visibility toggle, not just positioning). */}
           <Suspense fallback={null}>
-            <CustomStarField count={3000} radius={100} />
-            <ControlCubeField />
+            <group visible={astronautPhase === 'idle' || astronautPhase === 'hopping' || astronautPhase === 'launching'}>
+              <ControlCubeField />
+            </group>
+            <CustomStarField count={2200} radius={100} />
           </Suspense>
 
           <Suspense fallback={null}>
@@ -119,8 +127,8 @@ const SpaceCanvas = () => {
 
           <Suspense fallback={null}>
             <PlanetShowcase
-              showMoon={astronautPhase === 'landing' || astronautPhase === 'seated'}
-              showPlanets={astronautPhase === 'seated'}
+              showMoon={astronautPhase === 'flying' || astronautPhase === 'landing' || astronautPhase === 'seated'}
+              showPlanets={astronautPhase === 'flying' || astronautPhase === 'landing' || astronautPhase === 'seated'}
             />
           </Suspense>
 
@@ -153,6 +161,5 @@ const SpaceCanvas = () => {
 };
 
 export default SpaceCanvas;
-
 
 

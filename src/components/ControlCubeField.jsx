@@ -1,5 +1,6 @@
 import ControlCube from './ControlCube';
 import FarCube from './FarCube';
+import { HOP_CUBES, HOP_CUBE_SIZE } from './sceneConstants';
 
 const ControlCubeField = ({ cubeConfigurations = [] }) => {
   const defaultConfigurations = [
@@ -150,6 +151,27 @@ const ControlCubeField = ({ cubeConfigurations = [] }) => {
       phase: 7.0,
       driftAmplitude: 0.12,
     },
+    // Two more added for a fuller field.
+    {
+      position: [-3.3, 0.5, -5.2],
+      scale: 0.7,
+      rotationSpeedX: 0.32,
+      rotationSpeedY: 0.4,
+      floatSpeed: 0.48,
+      floatAmplitude: 0.13,
+      phase: 3.9,
+      driftAmplitude: 0.11,
+    },
+    {
+      position: [3.3, -0.5, -5.2],
+      scale: 0.7,
+      rotationSpeedX: 0.36,
+      rotationSpeedY: 0.38,
+      floatSpeed: 0.52,
+      floatAmplitude: 0.13,
+      phase: 7.6,
+      driftAmplitude: 0.11,
+    },
   ];
 
   // A sparse, deliberate outer layer adds depth while staying visibly behind
@@ -168,15 +190,49 @@ const ControlCubeField = ({ cubeConfigurations = [] }) => {
     { position: [1.6, -3.5, -13.2], scale: 0.5, rotationSpeedX: 0.25, rotationSpeedY: 0.26, floatSpeed: 0.36, floatAmplitude: 0.17, phase: 2.0 },
   ];
 
+  // A wider outer ring means a camera orbit reveals cubes from the sides and
+  // rear as well as the initial forward view. These stay small and distant
+  // so the foreground remains readable.
+  const farOuterConfigurations = [
+    { position: [-8.0, 2.8, 2.5], scale: 0.42, rotationSpeedX: 0.18, rotationSpeedY: 0.24, floatSpeed: 0.24, floatAmplitude: 0.15, phase: 0.8 },
+    { position: [8.0, 2.2, 2.5], scale: 0.5, rotationSpeedX: 0.22, rotationSpeedY: 0.2, floatSpeed: 0.28, floatAmplitude: 0.16, phase: 2.4 },
+    { position: [-7.2, -2.6, 4.5], scale: 0.55, rotationSpeedX: 0.2, rotationSpeedY: 0.3, floatSpeed: 0.3, floatAmplitude: 0.18, phase: 4.4 },
+    { position: [7.4, -3.0, 4.2], scale: 0.4, rotationSpeedX: 0.24, rotationSpeedY: 0.26, floatSpeed: 0.32, floatAmplitude: 0.15, phase: 5.9 },
+    { position: [-5.4, 3.8, 8.5], scale: 0.48, rotationSpeedX: 0.2, rotationSpeedY: 0.25, floatSpeed: 0.26, floatAmplitude: 0.18, phase: 1.7 },
+    { position: [5.8, 3.4, 9.2], scale: 0.58, rotationSpeedX: 0.25, rotationSpeedY: 0.22, floatSpeed: 0.3, floatAmplitude: 0.17, phase: 3.3 },
+    { position: [-5.8, -4.0, 8.4], scale: 0.38, rotationSpeedX: 0.18, rotationSpeedY: 0.28, floatSpeed: 0.34, floatAmplitude: 0.14, phase: 4.9 },
+    { position: [5.0, -4.3, 9.0], scale: 0.46, rotationSpeedX: 0.22, rotationSpeedY: 0.3, floatSpeed: 0.28, floatAmplitude: 0.16, phase: 6.4 },
+    { position: [-9.0, 0.2, -2.0], scale: 0.5, rotationSpeedX: 0.23, rotationSpeedY: 0.2, floatSpeed: 0.27, floatAmplitude: 0.17, phase: 7.1 },
+    { position: [9.0, -0.4, -2.8], scale: 0.44, rotationSpeedX: 0.2, rotationSpeedY: 0.26, floatSpeed: 0.3, floatAmplitude: 0.15, phase: 8.0 },
+    { position: [-3.8, 4.8, 5.8], scale: 0.34, rotationSpeedX: 0.24, rotationSpeedY: 0.18, floatSpeed: 0.36, floatAmplitude: 0.13, phase: 9.2 },
+    { position: [3.4, -5.0, 6.4], scale: 0.52, rotationSpeedX: 0.19, rotationSpeedY: 0.24, floatSpeed: 0.31, floatAmplitude: 0.15, phase: 10.4 },
+  ];
+
   const configurations = cubeConfigurations.length > 0 ? cubeConfigurations : defaultConfigurations;
 
   return (
     <group>
+      {/* Hop-platform cubes: the character actually stands/hops on these,
+          landing exactly on each one's top face (see sceneConstants.js).
+          `stationary` keeps them from drifting out from under his feet. */}
+      {HOP_CUBES.map((position, index) => (
+        <ControlCube
+          key={`hop-${index}`}
+          position={position}
+          size={HOP_CUBE_SIZE}
+          stationary
+          rotationSpeedX={0.08}
+          rotationSpeedY={0.1}
+        />
+      ))}
       {configurations.map((config, index) => (
-        <ControlCube key={index} {...config} />
+        <ControlCube key={index} {...config} scale={(config.scale ?? 1) * 0.86} />
       ))}
       {farConfigurations.map((config, index) => (
         <FarCube key={`far-${index}`} {...config} />
+      ))}
+      {farOuterConfigurations.map((config, index) => (
+        <FarCube key={`far-outer-${index}`} {...config} />
       ))}
     </group>
   );
