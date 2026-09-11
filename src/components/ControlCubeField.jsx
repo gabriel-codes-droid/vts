@@ -1,211 +1,55 @@
 import ControlCube from './ControlCube';
-import FarCube from './FarCube';
 import { HOP_CUBES, HOP_CUBE_SIZE } from './sceneConstants';
 
+// A composed field with real scale and distance variety. Front cubes trimmed
+// down further so they don't dominate; hop cubes kept at a clear, walkable
+// size; far/back layer pushed deep and made numerous so dragging around the
+// scene reveals cubes at every depth layer.
 const ControlCubeField = ({ cubeConfigurations = [] }) => {
   const defaultConfigurations = [
-    // Top row: evenly spaced framing cubes.
-    {
-      position: [-2.5, 1.8, -4.8],
-      scale: 0.9,
-      rotationSpeedX: 0.25,
-      rotationSpeedY: 0.35,
-      floatSpeed: 0.4,
-      floatAmplitude: 0.14,
-      phase: 0.4,
-      driftAmplitude: 0.12,
-    },
-    {
-      position: [-1.0, 2.2, -5.6],
-      scale: 0.65,
-      rotationSpeedX: 0.3,
-      rotationSpeedY: 0.22,
-      floatSpeed: 0.35,
-      floatAmplitude: 0.12,
-      phase: 2.8,
-      driftAmplitude: 0.1,
-    },
-    {
-      position: [1.0, 2.2, -5.6],
-      scale: 0.65,
-      rotationSpeedX: 0.3,
-      rotationSpeedY: 0.22,
-      floatSpeed: 0.35,
-      floatAmplitude: 0.12,
-      phase: 3.4,
-      driftAmplitude: 0.1,
-    },
-    {
-      position: [2.5, 1.8, -4.8],
-      scale: 0.9,
-      rotationSpeedX: 0.25,
-      rotationSpeedY: 0.35,
-      floatSpeed: 0.4,
-      floatAmplitude: 0.14,
-      phase: 2.8,
-      driftAmplitude: 0.12,
-    },
+    // Front cluster — noticeably smaller now
+    { position: [-4.8, 1.8, -1.5], scale: 0.5, rotationSpeedX: 0.25, rotationSpeedY: 0.35, floatSpeed: 0.4, floatAmplitude: 0.3, phase: 0.4, driftAmplitude: 0.5 },
+    { position: [5.1, -0.6, -1.2], scale: 0.45, rotationSpeedX: 0.3, rotationSpeedY: 0.22, floatSpeed: 0.35, floatAmplitude: 0.28, phase: 2.8, driftAmplitude: 0.45 },
 
-    // Middle side frames keep the astronaut's flight lane clear.
-    {
-      position: [-2.7, 0.1, -4.0],
-      scale: 1.0,
-      rotationSpeedX: 0.4,
-      rotationSpeedY: 0.5,
-      floatSpeed: 0.55,
-      floatAmplitude: 0.13,
-      phase: 1.1,
-      driftAmplitude: 0.13,
-    },
-    {
-      position: [2.7, 0.1, -4.0],
-      scale: 1.0,
-      rotationSpeedX: 0.45,
-      rotationSpeedY: 0.4,
-      floatSpeed: 0.5,
-      floatAmplitude: 0.13,
-      phase: 4.2,
-      driftAmplitude: 0.13,
-    },
+    // Mid-distance — spread wider
+    { position: [-3.5, -1.8, -5.5], scale: 0.38, rotationSpeedX: 0.4, rotationSpeedY: 0.5, floatSpeed: 0.55, floatAmplitude: 0.24, phase: 1.1, driftAmplitude: 0.35 },
+    { position: [4.2, 2.8, -6.8], scale: 0.35, rotationSpeedX: 0.45, rotationSpeedY: 0.4, floatSpeed: 0.5, floatAmplitude: 0.22, phase: 4.2, driftAmplitude: 0.3 },
+    { position: [0.8, 4.2, -7.5], scale: 0.3, rotationSpeedX: 0.35, rotationSpeedY: 0.55, floatSpeed: 0.6, floatAmplitude: 0.2, phase: 3.0, driftAmplitude: 0.32 },
+    { position: [-6.8, 1.5, -7.2], scale: 0.3, rotationSpeedX: 0.42, rotationSpeedY: 0.48, floatSpeed: 0.58, floatAmplitude: 0.2, phase: 2.2, driftAmplitude: 0.3 },
 
-    // Two added cubes sit inside the composition instead of drifting into the path.
-    {
-      position: [-0.75, 0.65, -6.0],
-      scale: 0.58,
-      rotationSpeedX: 0.42,
-      rotationSpeedY: 0.52,
-      floatSpeed: 0.62,
-      floatAmplitude: 0.1,
-      phase: 8.2,
-      driftAmplitude: 0.08,
-    },
-    {
-      position: [0.75, -0.65, -6.0],
-      scale: 0.58,
-      rotationSpeedX: 0.46,
-      rotationSpeedY: 0.44,
-      floatSpeed: 0.68,
-      floatAmplitude: 0.1,
-      phase: 9.1,
-      driftAmplitude: 0.08,
-    },
-    {
-      position: [-1.35, 0.25, -6.8],
-      scale: 0.62,
-      rotationSpeedX: 0.35,
-      rotationSpeedY: 0.45,
-      floatSpeed: 0.58,
-      floatAmplitude: 0.1,
-      phase: 5.5,
-      driftAmplitude: 0.09,
-    },
-    {
-      position: [1.35, 0.25, -6.8],
-      scale: 0.62,
-      rotationSpeedX: 0.38,
-      rotationSpeedY: 0.48,
-      floatSpeed: 0.6,
-      floatAmplitude: 0.1,
-      phase: 6.2,
-      driftAmplitude: 0.09,
-    },
+    // Far, small, dispersed — more numerous for drag visibility
+    { position: [-9.5, -4.2, -15.0], scale: 0.22, rotationSpeedX: 0.5, rotationSpeedY: 0.3, floatSpeed: 0.7, floatAmplitude: 0.16, phase: 5.5, driftAmplitude: 0.24 },
+    { position: [10.2, 2.0, -16.5], scale: 0.2, rotationSpeedX: 0.55, rotationSpeedY: 0.45, floatSpeed: 0.65, floatAmplitude: 0.15, phase: 0.9, driftAmplitude: 0.22 },
+    { position: [0.5, -5.8, -18.0], scale: 0.18, rotationSpeedX: 0.4, rotationSpeedY: 0.6, floatSpeed: 0.75, floatAmplitude: 0.14, phase: 6.1, driftAmplitude: 0.2 },
+    { position: [-5.2, 6.2, -17.0], scale: 0.17, rotationSpeedX: 0.6, rotationSpeedY: 0.35, floatSpeed: 0.8, floatAmplitude: 0.12, phase: 1.6, driftAmplitude: 0.18 },
+    { position: [6.8, -5.8, -20.0], scale: 0.15, rotationSpeedX: 0.38, rotationSpeedY: 0.52, floatSpeed: 0.72, floatAmplitude: 0.12, phase: 4.8, driftAmplitude: 0.18 },
+    { position: [11.5, -2.5, -18.5], scale: 0.17, rotationSpeedX: 0.48, rotationSpeedY: 0.4, floatSpeed: 0.68, floatAmplitude: 0.13, phase: 3.6, driftAmplitude: 0.2 },
+    { position: [-12.0, -1.5, -16.5], scale: 0.18, rotationSpeedX: 0.44, rotationSpeedY: 0.56, floatSpeed: 0.7, floatAmplitude: 0.13, phase: 5.9, driftAmplitude: 0.19 },
+    { position: [3.2, 6.8, -20.5], scale: 0.14, rotationSpeedX: 0.52, rotationSpeedY: 0.38, floatSpeed: 0.78, floatAmplitude: 0.11, phase: 0.2, driftAmplitude: 0.16 },
 
-    // Bottom row mirrors the top for a deliberate, balanced silhouette.
-    {
-      position: [-2.5, -1.8, -4.7],
-      scale: 0.9,
-      rotationSpeedX: 0.4,
-      rotationSpeedY: 0.6,
-      floatSpeed: 0.55,
-      floatAmplitude: 0.13,
-      phase: 6.1,
-      driftAmplitude: 0.12,
-    },
-    {
-      position: [-0.9, -2.25, -5.5],
-      scale: 0.65,
-      rotationSpeedX: 0.5,
-      rotationSpeedY: 0.3,
-      floatSpeed: 0.7,
-      floatAmplitude: 0.1,
-      phase: 5.5,
-      driftAmplitude: 0.1,
-    },
-    {
-      position: [0.9, -2.25, -5.5],
-      scale: 0.65,
-      rotationSpeedX: 0.55,
-      rotationSpeedY: 0.45,
-      floatSpeed: 0.65,
-      floatAmplitude: 0.1,
-      phase: 0.9,
-      driftAmplitude: 0.1,
-    },
-    {
-      position: [2.5, -1.8, -4.7],
-      scale: 0.9,
-      rotationSpeedX: 0.45,
-      rotationSpeedY: 0.5,
-      floatSpeed: 0.6,
-      floatAmplitude: 0.12,
-      phase: 7.0,
-      driftAmplitude: 0.12,
-    },
-    // Two more added for a fuller field.
-    {
-      position: [-3.3, 0.5, -5.2],
-      scale: 0.7,
-      rotationSpeedX: 0.32,
-      rotationSpeedY: 0.4,
-      floatSpeed: 0.48,
-      floatAmplitude: 0.13,
-      phase: 3.9,
-      driftAmplitude: 0.11,
-    },
-    {
-      position: [3.3, -0.5, -5.2],
-      scale: 0.7,
-      rotationSpeedX: 0.36,
-      rotationSpeedY: 0.38,
-      floatSpeed: 0.52,
-      floatAmplitude: 0.13,
-      phase: 7.6,
-      driftAmplitude: 0.11,
-    },
-  ];
+    // Back layer — extra cubes so dragging pans across a deep field
+    { position: [-8.2, 5.8, -22.0], scale: 0.15, rotationSpeedX: 0.46, rotationSpeedY: 0.32, floatSpeed: 0.66, floatAmplitude: 0.13, phase: 7.3, driftAmplitude: 0.17 },
+    { position: [8.5, 5.2, -24.0], scale: 0.16, rotationSpeedX: 0.4, rotationSpeedY: 0.5, floatSpeed: 0.6, floatAmplitude: 0.14, phase: 8.4, driftAmplitude: 0.18 },
+    { position: [-4.2, -7.2, -22.5], scale: 0.13, rotationSpeedX: 0.5, rotationSpeedY: 0.28, floatSpeed: 0.7, floatAmplitude: 0.12, phase: 9.1, driftAmplitude: 0.15 },
+    { position: [4.8, -7.8, -25.0], scale: 0.14, rotationSpeedX: 0.42, rotationSpeedY: 0.44, floatSpeed: 0.64, floatAmplitude: 0.13, phase: 9.9, driftAmplitude: 0.16 },
+    { position: [-11.2, 3.2, -25.5], scale: 0.13, rotationSpeedX: 0.38, rotationSpeedY: 0.5, floatSpeed: 0.62, floatAmplitude: 0.12, phase: 10.5, driftAmplitude: 0.15 },
+    { position: [12.5, -3.5, -27.0], scale: 0.15, rotationSpeedX: 0.46, rotationSpeedY: 0.36, floatSpeed: 0.68, floatAmplitude: 0.13, phase: 11.2, driftAmplitude: 0.17 },
+    { position: [-14.5, 6.2, -30.0], scale: 0.11, rotationSpeedX: 0.42, rotationSpeedY: 0.34, floatSpeed: 0.7, floatAmplitude: 0.1, phase: 12.1, driftAmplitude: 0.14 },
+    { position: [15.2, 3.8, -32.5], scale: 0.12, rotationSpeedX: 0.36, rotationSpeedY: 0.46, floatSpeed: 0.65, floatAmplitude: 0.11, phase: 12.8, driftAmplitude: 0.15 },
+    { position: [-9.5, -8.5, -31.0], scale: 0.1, rotationSpeedX: 0.5, rotationSpeedY: 0.3, floatSpeed: 0.74, floatAmplitude: 0.1, phase: 13.6, driftAmplitude: 0.13 },
+    { position: [10.8, -7.8, -34.0], scale: 0.09, rotationSpeedX: 0.44, rotationSpeedY: 0.4, floatSpeed: 0.7, floatAmplitude: 0.1, phase: 14.3, driftAmplitude: 0.12 },
 
-  // A sparse, deliberate outer layer adds depth while staying visibly behind
-  // the hero composition. Positions are hand-authored so the background reads
-  // as a designed constellation instead of a random scatter.
-  const farConfigurations = [
-    { position: [-4.8, 2.9, -10.5], scale: 0.72, rotationSpeedX: 0.2, rotationSpeedY: 0.28, floatSpeed: 0.28, floatAmplitude: 0.18, phase: 0.6 },
-    { position: [-3.4, 0.9, -12.2], scale: 0.46, rotationSpeedX: 0.28, rotationSpeedY: 0.22, floatSpeed: 0.34, floatAmplitude: 0.2, phase: 2.1 },
-    { position: [-4.3, -2.6, -11.1], scale: 0.62, rotationSpeedX: 0.23, rotationSpeedY: 0.3, floatSpeed: 0.3, floatAmplitude: 0.16, phase: 4.3 },
-    { position: [-2.2, 3.45, -13.8], scale: 0.42, rotationSpeedX: 0.3, rotationSpeedY: 0.2, floatSpeed: 0.38, floatAmplitude: 0.14, phase: 1.4 },
-    { position: [-1.6, -3.5, -13.2], scale: 0.5, rotationSpeedX: 0.25, rotationSpeedY: 0.26, floatSpeed: 0.36, floatAmplitude: 0.17, phase: 5.1 },
-    { position: [4.8, 2.9, -10.5], scale: 0.72, rotationSpeedX: 0.2, rotationSpeedY: 0.28, floatSpeed: 0.28, floatAmplitude: 0.18, phase: 3.2 },
-    { position: [3.4, 0.9, -12.2], scale: 0.46, rotationSpeedX: 0.28, rotationSpeedY: 0.22, floatSpeed: 0.34, floatAmplitude: 0.2, phase: 4.7 },
-    { position: [4.3, -2.6, -11.1], scale: 0.62, rotationSpeedX: 0.23, rotationSpeedY: 0.3, floatSpeed: 0.3, floatAmplitude: 0.16, phase: 1.2 },
-    { position: [2.2, 3.45, -13.8], scale: 0.42, rotationSpeedX: 0.3, rotationSpeedY: 0.2, floatSpeed: 0.38, floatAmplitude: 0.14, phase: 5.6 },
-    { position: [1.6, -3.5, -13.2], scale: 0.5, rotationSpeedX: 0.25, rotationSpeedY: 0.26, floatSpeed: 0.36, floatAmplitude: 0.17, phase: 2.0 },
-  ];
-
-  // A wider outer ring means a camera orbit reveals cubes from the sides and
-  // rear as well as the initial forward view. These stay small and distant
-  // so the foreground remains readable.
-  const farOuterConfigurations = [
-    { position: [-8.0, 2.8, 2.5], scale: 0.42, rotationSpeedX: 0.18, rotationSpeedY: 0.24, floatSpeed: 0.24, floatAmplitude: 0.15, phase: 0.8 },
-    { position: [8.0, 2.2, 2.5], scale: 0.5, rotationSpeedX: 0.22, rotationSpeedY: 0.2, floatSpeed: 0.28, floatAmplitude: 0.16, phase: 2.4 },
-    { position: [-7.2, -2.6, 4.5], scale: 0.55, rotationSpeedX: 0.2, rotationSpeedY: 0.3, floatSpeed: 0.3, floatAmplitude: 0.18, phase: 4.4 },
-    { position: [7.4, -3.0, 4.2], scale: 0.4, rotationSpeedX: 0.24, rotationSpeedY: 0.26, floatSpeed: 0.32, floatAmplitude: 0.15, phase: 5.9 },
-    { position: [-5.4, 3.8, 8.5], scale: 0.48, rotationSpeedX: 0.2, rotationSpeedY: 0.25, floatSpeed: 0.26, floatAmplitude: 0.18, phase: 1.7 },
-    { position: [5.8, 3.4, 9.2], scale: 0.58, rotationSpeedX: 0.25, rotationSpeedY: 0.22, floatSpeed: 0.3, floatAmplitude: 0.17, phase: 3.3 },
-    { position: [-5.8, -4.0, 8.4], scale: 0.38, rotationSpeedX: 0.18, rotationSpeedY: 0.28, floatSpeed: 0.34, floatAmplitude: 0.14, phase: 4.9 },
-    { position: [5.0, -4.3, 9.0], scale: 0.46, rotationSpeedX: 0.22, rotationSpeedY: 0.3, floatSpeed: 0.28, floatAmplitude: 0.16, phase: 6.4 },
-    { position: [-9.0, 0.2, -2.0], scale: 0.5, rotationSpeedX: 0.23, rotationSpeedY: 0.2, floatSpeed: 0.27, floatAmplitude: 0.17, phase: 7.1 },
-    { position: [9.0, -0.4, -2.8], scale: 0.44, rotationSpeedX: 0.2, rotationSpeedY: 0.26, floatSpeed: 0.3, floatAmplitude: 0.15, phase: 8.0 },
-    { position: [-3.8, 4.8, 5.8], scale: 0.34, rotationSpeedX: 0.24, rotationSpeedY: 0.18, floatSpeed: 0.36, floatAmplitude: 0.13, phase: 9.2 },
-    { position: [3.4, -5.0, 6.4], scale: 0.52, rotationSpeedX: 0.19, rotationSpeedY: 0.24, floatSpeed: 0.31, floatAmplitude: 0.15, phase: 10.4 },
+    // Deep back layer — visible when dragging around the scene
+    { position: [-16.0, 8.5, -35.0], scale: 0.08, rotationSpeedX: 0.4, rotationSpeedY: 0.3, floatSpeed: 0.72, floatAmplitude: 0.08, phase: 15.5, driftAmplitude: 0.11 },
+    { position: [17.5, 5.2, -38.0], scale: 0.09, rotationSpeedX: 0.35, rotationSpeedY: 0.4, floatSpeed: 0.68, floatAmplitude: 0.09, phase: 16.2, driftAmplitude: 0.12 },
+    { position: [-12.5, -9.8, -36.5], scale: 0.08, rotationSpeedX: 0.45, rotationSpeedY: 0.25, floatSpeed: 0.75, floatAmplitude: 0.08, phase: 17.8, driftAmplitude: 0.1 },
+    { position: [14.2, -10.2, -40.0], scale: 0.08, rotationSpeedX: 0.38, rotationSpeedY: 0.42, floatSpeed: 0.7, floatAmplitude: 0.09, phase: 18.5, driftAmplitude: 0.11 },
+    { position: [-18.8, 4.5, -42.5], scale: 0.07, rotationSpeedX: 0.32, rotationSpeedY: 0.48, floatSpeed: 0.65, floatAmplitude: 0.07, phase: 19.1, driftAmplitude: 0.09 },
+    { position: [20.0, -4.8, -45.0], scale: 0.07, rotationSpeedX: 0.4, rotationSpeedY: 0.32, floatSpeed: 0.72, floatAmplitude: 0.08, phase: 20.3, driftAmplitude: 0.1 },
+    { position: [22.5, 7.5, -48.0], scale: 0.06, rotationSpeedX: 0.34, rotationSpeedY: 0.38, floatSpeed: 0.7, floatAmplitude: 0.07, phase: 21.5, driftAmplitude: 0.09 },
+    { position: [-21.0, -6.5, -50.0], scale: 0.06, rotationSpeedX: 0.36, rotationSpeedY: 0.3, floatSpeed: 0.66, floatAmplitude: 0.07, phase: 22.8, driftAmplitude: 0.08 },
+    { position: [25.0, -8.2, -52.0], scale: 0.05, rotationSpeedX: 0.3, rotationSpeedY: 0.42, floatSpeed: 0.68, floatAmplitude: 0.06, phase: 24.1, driftAmplitude: 0.07 },
+    { position: [-24.5, 9.5, -55.0], scale: 0.05, rotationSpeedX: 0.28, rotationSpeedY: 0.34, floatSpeed: 0.64, floatAmplitude: 0.06, phase: 25.3, driftAmplitude: 0.07 },
   ];
 
   const configurations = cubeConfigurations.length > 0 ? cubeConfigurations : defaultConfigurations;
@@ -226,13 +70,17 @@ const ControlCubeField = ({ cubeConfigurations = [] }) => {
         />
       ))}
       {configurations.map((config, index) => (
-        <ControlCube key={index} {...config} scale={(config.scale ?? 1) * 0.86} />
-      ))}
-      {farConfigurations.map((config, index) => (
-        <FarCube key={`far-${index}`} {...config} />
-      ))}
-      {farOuterConfigurations.map((config, index) => (
-        <FarCube key={`far-outer-${index}`} {...config} />
+        <ControlCube
+          key={index}
+          position={config.position}
+          scale={config.scale}
+          rotationSpeedX={config.rotationSpeedX}
+          rotationSpeedY={config.rotationSpeedY}
+          floatSpeed={config.floatSpeed}
+          floatAmplitude={config.floatAmplitude}
+          phase={config.phase}
+          driftAmplitude={config.driftAmplitude}
+        />
       ))}
     </group>
   );

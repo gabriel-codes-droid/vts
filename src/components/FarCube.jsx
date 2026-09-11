@@ -35,7 +35,7 @@ const FarCube = ({
   return (
     <group ref={ref} position={position} scale={scale}>
       <mesh>
-        <roundedBoxGeometry args={[1.3, 1.3, 1.3, 3, 0.1]} />
+        <roundedBoxGeometry args={[0.85, 0.85, 0.85, 3, 0.07]} />
         <meshStandardMaterial
           color={GLASS_COLOR}
           roughness={0.28}

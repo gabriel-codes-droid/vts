@@ -3,12 +3,16 @@ import { useFrame } from '@react-three/fiber';
 import { useFBX, useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
 import { clone as cloneSkinnedScene } from 'three/examples/jsm/utils/SkeletonUtils.js';
-import { MOON_SEAT_POSITION, LAUNCH_POINT, FLIGHT_APEX } from './sceneConstants';
+import {
+  MOON_SEAT_POSITION,
+  PLANET_ROW_Z,
+  LAUNCH_POINT,
+  FLIGHT_APEX,
+} from './sceneConstants';
 
 const ASTRONAUT_MODEL = '/models/bot_mecha_warrior.glb';
 const JETPACK_MODEL = '/models/jetpack/Jetpack.glb';
 const CHARACTER_SCALE = 0.68;
-const SEATED_ROOT_HEIGHT = 1.53;
 
 useGLTF.preload(ASTRONAUT_MODEL);
 useGLTF.preload(JETPACK_MODEL);
@@ -39,7 +43,7 @@ const BONE_MAP = {
 // group origin can be placed directly on the shared cube-top waypoint.
 const FOOT_OFFSET = 0;
 
-export default function TacticalAstronaut({ phase, position = [0, 0, 0], scale = 1, hopPoints = [[0, 0, 0]], hopPositionRef, journeyProgress = 0 }) {
+export default function TacticalAstronaut({ phase, position = [0, 0, 0], scale = 1, hopPoints = [[0, 0, 0]], hopPositionRef, journeyProgress = 0, journeyProgressRef }) {
   const group = useRef(null);
   const hopIndex = useRef(0);
   const hopStart = useRef(null);
@@ -55,10 +59,14 @@ export default function TacticalAstronaut({ phase, position = [0, 0, 0], scale =
         const tuned = material.clone();
         const isVisor = tuned.name === 'HEAD_1032';
         // Keep the visor slightly glossy, but make the body read as worn
-        // painted metal instead of a polished chrome toy.
-        tuned.roughness = isVisor ? 0.3 : 0.72;
-        tuned.metalness = isVisor ? 0.12 : 0.62;
-        tuned.envMapIntensity = isVisor ? 0.48 : 0.32;
+        // painted metal instead of a polished chrome toy. Roughness bumped
+        // up and metalness/envMapIntensity brought down further — the
+        // previous values were reading as too bright/hot under the scene's
+        // combined lighting (ambient + directional + 3 point lights all
+        // hitting a fairly metallic, glossy surface).
+        tuned.roughness = isVisor ? 0.38 : 0.85;
+        tuned.metalness = isVisor ? 0.1 : 0.4;
+        tuned.envMapIntensity = isVisor ? 0.35 : 0.2;
         return tuned;
       });
       object.material = Array.isArray(object.material) ? tunedMaterials : tunedMaterials[0];
@@ -135,6 +143,19 @@ export default function TacticalAstronaut({ phase, position = [0, 0, 0], scale =
     return () => action.fadeOut(0.12);
   }, [actions, phase]);
 
+  const hopDirRef = useRef(new THREE.Vector3());
+  const hopPitchRef = useRef(0);
+  const seatedBounds = useMemo(() => new THREE.Box3(), []);
+  const seatedWorldScale = useMemo(() => new THREE.Vector3(), []);
+  const seatedHipBend = useMemo(
+    () => new THREE.Quaternion().setFromEuler(new THREE.Euler(-0.62, 0, 0)),
+    [],
+  );
+  const seatedKneeBend = useMemo(
+    () => new THREE.Quaternion().setFromEuler(new THREE.Euler(0.92, 0, 0)),
+    [],
+  );
+
   useFrame((state, delta) => {
     if (!group.current) return;
     const t = state.clock.getElapsedTime();
@@ -146,6 +167,7 @@ export default function TacticalAstronaut({ phase, position = [0, 0, 0], scale =
       if (sourceBones[sourceName] && sourceRestLocal[sourceName]) sourceBones[sourceName].quaternion.copy(sourceRestLocal[sourceName]);
     });
     sourceMixer.update(delta);
+
 
     // Convert each FBX world-pose delta into the bot's own bind pose. This
     // keeps the bot's left/right limb axes and separated leg chains intact;
@@ -183,9 +205,22 @@ export default function TacticalAstronaut({ phase, position = [0, 0, 0], scale =
       nextTargetPoseWorld[targetName] = poseScratch.desiredTargetWorld.clone();
     });
 
+    // Some mecha clips retain the source rig's bind pose when retargeted.
+    // Keep the supplied FBX as the driver, then add a restrained symmetric
+    // fold so this model reads as seated without crossing its legs.
+    if (phase === 'seated') {
+      ['thigh_stretch_l_057', 'thigh_stretch_r_065'].forEach((name) => {
+        if (targetBones[name]) targetBones[name].quaternion.multiply(seatedHipBend);
+      });
+      ['leg_stretch_l_058', 'leg_stretch_r_066'].forEach((name) => {
+        if (targetBones[name]) targetBones[name].quaternion.multiply(seatedKneeBend);
+      });
+    }
+
+
     if (phase === 'idle') {
       hopStart.current = null; hopIndex.current = 0;
-      group.current.rotation.set(0, 0, 0);
+      group.current.rotation.y = hopDirRef.current.z;
       const p = hopPoints[0] || [0, 0, 0];
       group.current.position.set(p[0], p[1] - FOOT_OFFSET + Math.sin(t * 2) * 0.01, p[2]);
       hopPositionRef?.current.copy(group.current.position);
@@ -193,14 +228,26 @@ export default function TacticalAstronaut({ phase, position = [0, 0, 0], scale =
     }
     if (phase === 'hopping') {
       if (hopStart.current === null) hopStart.current = t;
-      group.current.rotation.set(0, 0, 0);
       const elapsed = t - hopStart.current;
       const progress = (elapsed / 1.8) % 1;
-      // Keep the first hop anchored on cube 0; advance only when a complete
-      // hop cycle wraps, rather than incrementing on the first rendered frame.
+      // Advance hop index only after a full cycle completes, not on the first
+      // rendered frame — prevents the hop index from immediately jumping ahead.
       if (elapsed > 0.05 && progress < 0.02) hopIndex.current = (hopIndex.current + 1) % hopPoints.length;
       const from = hopPoints[hopIndex.current] || [0, 0, 0];
       const to = hopPoints[(hopIndex.current + 1) % hopPoints.length] || from;
+
+      // Face the direction of travel so the legs push forward during the hop
+      // instead of sliding sideways. Yaw rotates around the up axis so the
+      // body turns to face the next cube; legs then extend in the right
+      // direction relative to the body's forward axis.
+      const dir = new THREE.Vector3(to[0] - from[0], 0, to[2] - from[2]);
+      if (dir.lengthSq() > 0.001) {
+        const targetYaw = Math.atan2(dir.x, dir.z);
+        hopDirRef.current.lerp(new THREE.Vector3(0, 0, targetYaw), 0.2);
+        group.current.rotation.y = hopDirRef.current.z;
+      }
+
+      // Vertical hop: lerp X/Z linearly, Y follows a sine arc over the hop.
       group.current.position.set(
         THREE.MathUtils.lerp(from[0], to[0], progress),
         THREE.MathUtils.lerp(from[1], to[1], progress) - FOOT_OFFSET + Math.sin(progress * Math.PI) * 0.75,
@@ -211,36 +258,73 @@ export default function TacticalAstronaut({ phase, position = [0, 0, 0], scale =
     }
 
     if (phase === 'seated') {
-      // The final pose is a true moon-surface placement, not the last frame
-      // of the flight interpolation. The mecha faces -Z, toward the project
-      // planets positioned in front of the moon.
+      // Place the animated model first, then measure its actual visible
+      // lowest point. This avoids guessing where this particular GLB's root
+      // or sitting pose is and guarantees contact with the moon's top.
       group.current.position.set(
         MOON_SEAT_POSITION[0],
-        MOON_SEAT_POSITION[1] - (SEATED_ROOT_HEIGHT * CHARACTER_SCALE * scale),
+        MOON_SEAT_POSITION[1] - FOOT_OFFSET,
         MOON_SEAT_POSITION[2],
       );
-      group.current.rotation.set(0, Math.PI, 0);
+      // The mecha model faces -Z by default, so we need to rotate it 180°
+      // to face +Z toward the planets, then add the calculated angle
+      const planetDx = 0 - MOON_SEAT_POSITION[0];
+      const planetDz = PLANET_ROW_Z - MOON_SEAT_POSITION[2];
+      const angleToPlanets = Math.atan2(planetDx, planetDz);
+      // Add Math.PI (180°) to flip the model's default -Z facing to +Z
+      group.current.rotation.set(0, angleToPlanets + Math.PI, 0);
+      // Refresh the parent matrix before measuring: the group's newly-set
+      // position must be included in the world-space bounds.
+      group.current.updateMatrixWorld(true);
+      astronaut.updateMatrixWorld(true);
+      seatedBounds.makeEmpty();
+      astronaut.traverse((object) => {
+        // The jetpack is hidden while seated and must not define the contact
+        // point if its mesh extends below the bot's boots.
+        if (!object.isMesh || !object.geometry || jetpackClone.getObjectById(object.id)) return;
+        seatedBounds.expandByObject(object);
+      });
+      if (!seatedBounds.isEmpty()) {
+        // Bounds are world-space values, while this group is scaled by
+        // CHARACTER_SCALE. Convert the world-space correction back into the
+        // group's local units so the visible feet actually touch the moon.
+        group.current.getWorldScale(seatedWorldScale);
+        const worldScaleY = Math.max(Math.abs(seatedWorldScale.y), 0.0001);
+        group.current.position.y += (MOON_SEAT_POSITION[1] - seatedBounds.min.y) / worldScaleY;
+        group.current.updateMatrixWorld(true);
+      }
       hopPositionRef?.current.copy(group.current.position);
       return;
     }
 
-    const flightT = THREE.MathUtils.clamp((journeyProgress - 0.42) / 0.46, 0, 1);
+    const liveJourneyProgress = journeyProgressRef?.current ?? journeyProgress;
+    const flightT = THREE.MathUtils.clamp((liveJourneyProgress - 0.42) / 0.46, 0, 1);
     const eased = flightT * flightT * (3 - 2 * flightT);
+
     // Two-leg path: straight up off the last hop cube first (a real
     // vertical launch, clearing the cube field), then arcs over to land
     // exactly on the moon's surface (MOON_SEAT_POSITION, derived from the
-    // same MOON_CENTER/MOON_RADIUS PlanetShowcase.jsx renders the moon at).
+    // same MOON_CENTER/MOON_RADIUS MoonScene renders the moon at).
     const launchVec = new THREE.Vector3(...LAUNCH_POINT);
     const apexVec = new THREE.Vector3(...FLIGHT_APEX);
-    const seatVec = new THREE.Vector3(MOON_SEAT_POSITION[0], MOON_SEAT_POSITION[1] - FOOT_OFFSET, MOON_SEAT_POSITION[2]);
+    const seatVec = new THREE.Vector3(
+      MOON_SEAT_POSITION[0],
+      MOON_SEAT_POSITION[1] - FOOT_OFFSET,
+      MOON_SEAT_POSITION[2],
+    );
+
     if (eased < 0.5) {
+      // First leg: pure vertical ascent
       group.current.position.lerpVectors(launchVec, apexVec, eased / 0.5);
     } else {
+      // Second leg: vertical dive down to moon
       group.current.position.lerpVectors(apexVec, seatVec, (eased - 0.5) / 0.5);
     }
-    if (journeyProgress < 0.88) group.current.position.y += Math.sin(flightT * Math.PI) * 0.4;
-    group.current.rotation.z = THREE.MathUtils.lerp(0, -0.12, Math.sin(flightT * Math.PI));
-    group.current.rotation.x = THREE.MathUtils.lerp(0, 0.08, Math.sin(flightT * Math.PI));
+
+    // Vertical dive: face downward during flight, level out for landing.
+    const diveAngle = Math.sin(flightT * Math.PI) * (Math.PI / 2);
+    group.current.rotation.x = diveAngle;
+    group.current.rotation.y = 0;
   });
 
   const spine = astronaut.getObjectByName('spine_05_x_08');
@@ -250,17 +334,16 @@ export default function TacticalAstronaut({ phase, position = [0, 0, 0], scale =
     jetpackClone.rotation.set(0, Math.PI, 0);
     jetpackClone.scale.setScalar(0.95);
   }
-  // Only visible for the powered-flight portion of the journey: appears
-  // right as he launches, stays attached through the flight and the
-  // landing touchdown, then disappears once seated — matches a jetpack
-  // that's worn for the flight and set aside on arrival, not a permanent
-  // backpack.
-  jetpackClone.visible = phase === 'launching' || phase === 'flying' || phase === 'landing';
+  // Visible only for the actual powered-flight portion: launching and
+  // flying. Disappears the moment landing starts (previously stayed
+  // visible through landing too) — gone well before he's seated, and never
+  // shown during idle/hopping/seated.
+  jetpackClone.visible = phase === 'launching' || phase === 'flying';
 
   return (
     <group ref={group} position={position} scale={scale * CHARACTER_SCALE}>
       <primitive object={astronaut} />
-      <pointLight position={[0, 1.25, 0.2]} color="#b9d7ff" intensity={1.4} distance={3.4} decay={2} />
+      <pointLight position={[0, 1.25, 0.2]} color="#b9d7ff" intensity={0.6} distance={3} decay={2} />
     </group>
   );
 }

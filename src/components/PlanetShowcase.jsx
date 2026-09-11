@@ -1,53 +1,161 @@
+import { Html, useGLTF } from '@react-three/drei';
 import { useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
-import { useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
-import { MOON_CENTER, MOON_RADIUS, PLANET_ROW_Y, PLANET_ROW_Z, PLANET_ROW_SPACING } from './sceneConstants';
+import {
+  MOON_CENTER,
+  MOON_RADIUS,
+  PLANET_ROW_Y,
+  PLANET_ROW_Z,
+  PLANET_ROW_SPACING,
+} from './sceneConstants';
 
-// Positioned via the shared gallery-row formula from sceneConstants.js (same
-// pattern as the portfolio-3d reference project's ProjectSystems.tsx: evenly
-// spaced along X, shared Y/Z) — below MOON_CENTER, which itself sits below
-// the cube field's vertical extent so the two scenes don't visually
-// intermix. Only 2 planet models exist for now; a full 4-project gallery
-// (matching the reference's healthcare/dineconnect/kartz/PMD set) needs 2
-// more models or a switch to the reference's procedural-sphere approach.
-const PLANET_ASSETS = [
-  { path: '/models/little_planet_earth.glb', tint: '#22d3ee' },
-  { path: '/models/planet_earth.glb', tint: '#8b5cf6' },
-];
-const PLANETS = PLANET_ASSETS.map((asset, index) => ({
-  ...asset,
-  scale: 1.05,
+// The planet scene is a project gallery: each planet has its own visual
+// identity, orbit, and floating project label like the supplied reference.
+const PROJECTS = [
+  {
+    path: '/models/little_planet_earth.glb',
+    tint: '#38bdf8',
+    icon: '+',
+    title: 'HEALTHCARE',
+    stack: 'React · Node.js · Express',
+    description: 'Referral system',
+  },
+  {
+    path: '/models/planet_earth.glb',
+    tint: '#4ade80',
+    icon: '⌁',
+    title: 'DINECONNECT',
+    stack: 'React · Firebase · Tailwind',
+    description: 'Food and restaurant platform',
+  },
+  {
+    path: '/models/little_planet_earth.glb',
+    tint: '#fb923c',
+    icon: '▥',
+    title: 'PMD',
+    stack: 'React · Node.js · MongoDB',
+    description: 'Project management dashboard',
+  },
+  {
+    path: '/models/planet_earth.glb',
+    tint: '#c084fc',
+    icon: '◌',
+    title: 'KARTZ',
+    stack: 'React · Firebase · Stripe',
+    description: 'Creative marketplace',
+  },
+].map((project, index) => ({
+  ...project,
+  index,
+  // Small dot, not a big model — matches the reference's simple cluster of
+  // small colored orbs just above the moon, not individually detailed
+  // planet models spread in a row.
+  scale: 0.16,
   position: [
-    MOON_CENTER[0] + (index - (PLANET_ASSETS.length - 1) / 2) * PLANET_ROW_SPACING,
+    MOON_CENTER[0] + (index - (4 - 1) / 2) * PLANET_ROW_SPACING,
     PLANET_ROW_Y,
     PLANET_ROW_Z,
   ],
 }));
 
-function PlanetModel({ path, position, scale, tint, index }) {
-  const ref = useRef(null); const { scene } = useGLTF(path);
-  const model = useMemo(() => { const clone = scene.clone(true); const box = new THREE.Box3().setFromObject(clone); const size = box.getSize(new THREE.Vector3()); clone.scale.setScalar(scale / (Math.max(size.x, size.y, size.z) / 2 || 1)); return clone; }, [scene, scale]);
-  useFrame((_, delta) => { if (ref.current) ref.current.rotation.y += delta * (0.18 + index * 0.05); });
-  return <group position={position} ref={ref}><primitive object={model} /><mesh scale={1.18}><sphereGeometry args={[scale, 24, 24]} /><meshBasicMaterial color={tint} transparent opacity={0.08} depthWrite={false} /></mesh><pointLight color={tint} intensity={0.7} distance={8} /></group>;
+function ProjectLabel({ project }) {
+  return (
+    <Html position={[0, 1.18, 0]} center distanceFactor={7} zIndexRange={[2, 0]}>
+      <div
+        style={{
+          width: 178,
+          padding: '9px 11px',
+          border: `1px solid ${project.tint}88`,
+          borderRadius: 10,
+          background: 'rgba(2, 10, 24, 0.78)',
+          boxShadow: `0 0 24px ${project.tint}22`,
+          color: '#e6f4ff',
+          fontFamily: 'Inter, system-ui, sans-serif',
+          textAlign: 'left',
+          pointerEvents: 'none',
+          backdropFilter: 'blur(8px)',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span
+            style={{
+              display: 'grid',
+              placeItems: 'center',
+              width: 24,
+              height: 24,
+              border: `1px solid ${project.tint}`,
+              borderRadius: 7,
+              color: project.tint,
+              fontSize: 16,
+              fontWeight: 700,
+            }}
+          >
+            {project.icon}
+          </span>
+          <span style={{ color: project.tint, fontSize: 13, fontWeight: 800, letterSpacing: '0.08em' }}>
+            {project.title}
+          </span>
+        </div>
+        <div style={{ marginTop: 6, color: '#9ac6e6', fontSize: 10, whiteSpace: 'nowrap' }}>{project.stack}</div>
+        <div style={{ marginTop: 3, color: '#d6e8f6', fontSize: 10 }}>{project.description}</div>
+      </div>
+    </Html>
+  );
+}
+
+function PlanetModel({ project, visible }) {
+  const ref = useRef(null);
+
+  useFrame((_, delta) => {
+    if (ref.current) ref.current.rotation.y += delta * (0.12 + project.index * 0.025);
+  });
+
+  return (
+    <group position={project.position} visible={visible} ref={ref}>
+      {/* Solid small sphere — the reference image shows plain colored dots,
+          not detailed planet models with visible surface texture at this
+          scale (a full GLB model would be wasted detail this small, and
+          didn't match the intended composition anyway). */}
+      <mesh>
+        <sphereGeometry args={[project.scale, 20, 20]} />
+        <meshStandardMaterial color={project.tint} emissive={project.tint} emissiveIntensity={0.55} roughness={0.4} />
+      </mesh>
+      <mesh scale={1.6}>
+        <sphereGeometry args={[project.scale, 16, 16]} />
+        <meshBasicMaterial color={project.tint} transparent opacity={0.18} depthWrite={false} toneMapped={false} />
+      </mesh>
+      <pointLight color={project.tint} intensity={0.4} distance={3} />
+      {visible && <ProjectLabel project={project} />}
+    </group>
+  );
 }
 
 export default function PlanetShowcase({ showMoon, showPlanets }) {
   const moon = useGLTF('/models/moon.glb');
-  // Auto-scaled to MOON_RADIUS from sceneConstants.js — the same constant
-  // TacticalAstronaut.jsx uses to compute MOON_SEAT_POSITION, so the
-  // astronaut's feet always land exactly on this moon's actual surface
-  // instead of two independently-guessed numbers happening to roughly agree.
-  const moonModel = useMemo(() => { const clone = moon.scene.clone(true); const box = new THREE.Box3().setFromObject(clone); const size = box.getSize(new THREE.Vector3()); clone.scale.setScalar(MOON_RADIUS / (Math.max(size.x, size.y, size.z) / 2 || 1)); return clone; }, [moon.scene]);
-  return <group>
-    <group visible={showPlanets}>
-      {PLANETS.map((planet, index) => <PlanetModel key={planet.path} {...planet} index={index} />)}
+  const moonModel = useMemo(() => {
+    const clone = moon.scene.clone(true);
+    const box = new THREE.Box3().setFromObject(clone);
+    const size = box.getSize(new THREE.Vector3());
+    clone.scale.setScalar(MOON_RADIUS / (Math.max(size.x, size.y, size.z) / 2 || 1));
+    return clone;
+  }, [moon.scene]);
+
+  return (
+    <group>
+      <group visible={showPlanets}>
+        {PROJECTS.map((project) => (
+          <PlanetModel key={`${project.title}-${project.path}`} project={project} visible={showPlanets} />
+        ))}
+      </group>
+      <group visible={showMoon} position={MOON_CENTER}>
+        <primitive object={moonModel} />
+        <pointLight color="#cbd5e1" intensity={0.9} distance={8} />
+      </group>
     </group>
-    <group visible={showMoon} position={MOON_CENTER}>
-      <primitive object={moonModel} />
-      <pointLight color="#cbd5e1" intensity={0.9} distance={8} />
-    </group>
-  </group>;
+  );
 }
-PLANET_ASSETS.forEach(({ path }) => useGLTF.preload(path));
+
+// No longer preloading per-project planet GLBs — the gallery now renders
+// small procedural dots (see PlanetModel below), not individual models.
 useGLTF.preload('/models/moon.glb');

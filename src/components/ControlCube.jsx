@@ -31,7 +31,8 @@ const ControlCube = ({
   // instead of the platform swimming independently underneath it.
   // Rotation still animates normally, just not position.
   stationary = false,
-  size = 1.7,
+  // Decorative cubes stay compact; hop platforms pass their own 1.8 size.
+  size = 1.3,
 }) => {
   const outerCubeRef = useRef();
 
