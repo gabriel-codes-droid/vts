@@ -155,7 +155,7 @@ export default function TacticalAstronaut({ phase, position = [0, 0, 0], scale =
     const action = actions?.[phase];
     if (!action) return;
     Object.values(actions).forEach((item) => item.stop());
-    const oneShot = phase === 'waking' || phase === 'landing';
+    const oneShot = phase === 'waking' || phase === 'landing' || phase === 'seated';
     action.reset()
       .setLoop(oneShot ? THREE.LoopOnce : THREE.LoopRepeat, oneShot ? 1 : Infinity)
       .fadeIn(0.28)
@@ -232,12 +232,24 @@ export default function TacticalAstronaut({ phase, position = [0, 0, 0], scale =
     // Keep the supplied FBX as the driver, then add a restrained symmetric
     // fold so this model reads as seated without crossing its legs.
     if (phase === 'seated') {
+      // Stronger seated pose adjustments to ensure proper sitting appearance
       ['thigh_stretch_l_057', 'thigh_stretch_r_065'].forEach((name) => {
-        if (targetBones[name]) targetBones[name].quaternion.multiply(seatedHipBend);
+        if (targetBones[name]) {
+          const seatedHip = new THREE.Quaternion().setFromEuler(new THREE.Euler(-0.8, 0, 0));
+          targetBones[name].quaternion.multiply(seatedHip);
+        }
       });
       ['leg_stretch_l_058', 'leg_stretch_r_066'].forEach((name) => {
-        if (targetBones[name]) targetBones[name].quaternion.multiply(seatedKneeBend);
+        if (targetBones[name]) {
+          const seatedKnee = new THREE.Quaternion().setFromEuler(new THREE.Euler(1.1, 0, 0));
+          targetBones[name].quaternion.multiply(seatedKnee);
+        }
       });
+      // Bend spine forward slightly for seated posture
+      if (targetBones['spine_05_x_08']) {
+        const seatedSpine = new THREE.Quaternion().setFromEuler(new THREE.Euler(0.15, 0, 0));
+        targetBones['spine_05_x_08'].quaternion.multiply(seatedSpine);
+      }
     }
 
 
@@ -342,6 +354,8 @@ export default function TacticalAstronaut({ phase, position = [0, 0, 0], scale =
         group.current.position.y += (MOON_SEAT_POSITION[1] - seatedBounds.min.y) / worldScaleY;
         group.current.updateMatrixWorld(true);
       }
+      // Keep the mech continuously facing the planets during seated phase
+      group.current.rotation.set(0, angleToPlanets, 0);
       hopPositionRef?.current.copy(group.current.position);
       return;
     }

@@ -1,46 +1,98 @@
 import { useGLTF } from '@react-three/drei';
 import { useMemo } from 'react';
 import * as THREE from 'three';
-import { CRASH_SITE_POSITION } from './sceneConstants';
+import { GROUND_CENTER, GROUND_RADIUS, DEBRIS_POSITION, DEBRIS_WIDTH } from './sceneConstants';
 
-const CRASH_SITE_MODEL = '/models/halo_4multiplayercrimsonwreckage.glb';
-const CRASH_SITE_WIDTH = 24;
+const GROUND_MODEL = '/models/alien_planet_lv-426.glb';
+const DEBRIS_MODEL = '/models/halo_4multiplayercrimsonwreckage.glb';
 
-export default function CrashSite({ visible = true }) {
-  const { scene } = useGLTF(CRASH_SITE_MODEL);
+function Ground() {
+  const { scene } = useGLTF(GROUND_MODEL);
   const model = useMemo(() => {
     const clone = scene.clone(true);
+    clone.updateMatrixWorld(true);
 
-    // The Halo wreckage is authored Z-up. Convert it to the portfolio's
-    // Y-up world before measuring and centering it.
+    // This file has 4 meshes: one real terrain piece (~21 units across) and
+    // 3 giant flat backdrop/ground planes (1380 units across — measured
+    // directly, not guessed) left over from the source environment kit.
+    // Unlike the wreckage model, none of these have a helpful material name
+    // to filter by, so filter by measured size instead: anything over 100
+    // units in any dimension is one of the backdrop planes, not the actual
+    // terrain (100 has a wide margin either way — 5x the real piece, 13x
+    // smaller than the planes). Without this, normalizing the whole model
+    // together lets the giant planes dominate the bounding box and the real
+    // terrain gets scaled down to nothing, leaving just a huge flat surface
+    // filling the frame (exactly what showed up in-browser).
+    const SIZE_THRESHOLD = 100;
+    clone.traverse((object) => {
+      if (!object.isMesh) return;
+      const box = new THREE.Box3().setFromObject(object);
+      const size = box.getSize(new THREE.Vector3());
+      if (Math.max(size.x, size.y, size.z) > SIZE_THRESHOLD) {
+        object.visible = false;
+      }
+    });
+
+    const box = new THREE.Box3().setFromObject(clone);
+    const size = box.getSize(new THREE.Vector3());
+    const center = box.getCenter(new THREE.Vector3());
+    const scaleFactor = GROUND_RADIUS / (Math.max(size.x, size.y, size.z) / 2 || 1);
+    clone.scale.setScalar(scaleFactor);
+    clone.position.copy(center).multiplyScalar(-scaleFactor);
+    return clone;
+  }, [scene]);
+
+  return (
+    <group position={GROUND_CENTER}>
+      <primitive object={model} />
+    </group>
+  );
+}
+
+function DistantDebris() {
+  const { scene } = useGLTF(DEBRIS_MODEL);
+  const model = useMemo(() => {
+    const clone = scene.clone(true);
+    // Authored Z-up (Halo asset) — convert to this scene's Y-up.
     clone.rotation.x = -Math.PI / 2;
     clone.traverse((object) => {
       if (!object.isMesh || !object.material) return;
       const materials = Array.isArray(object.material) ? object.material : [object.material];
-      // The source scene includes an ocean backdrop that reads as a giant
-      // blue card in this portfolio. Keep the actual wreckage, hide only that
-      // backdrop so the starfield remains the scene background.
+      // Source scene includes an ocean backdrop that reads as a giant flat
+      // card at this distance — hide it, keep only the actual wreckage.
       if (materials.some((material) => material?.name === 'wreckage_ocean')) {
         object.visible = false;
       }
     });
     clone.updateMatrixWorld(true);
-
     const bounds = new THREE.Box3().setFromObject(clone);
     const size = bounds.getSize(new THREE.Vector3());
     const center = bounds.getCenter(new THREE.Vector3());
-    const widthScale = size.x > 0 ? CRASH_SITE_WIDTH / size.x : 1;
-
+    const widthScale = size.x > 0 ? DEBRIS_WIDTH / size.x : 1;
     clone.position.copy(center).multiplyScalar(-widthScale);
     clone.scale.setScalar(widthScale);
     return clone;
   }, [scene]);
 
   return (
-    <group position={CRASH_SITE_POSITION} visible={visible}>
+    <group position={DEBRIS_POSITION}>
       <primitive object={model} />
     </group>
   );
 }
 
-useGLTF.preload(CRASH_SITE_MODEL);
+// Used as scattered background debris now, not the ground itself — a single
+// distant instance. Its 106MB size is a one-time atmosphere cost, not
+// something worth paying for detail nobody will see up close at this
+// distance, and not something to replicate into multiple instances.
+export default function CrashSite({ visible = true }) {
+  return (
+    <group visible={visible}>
+      <Ground />
+      <DistantDebris />
+    </group>
+  );
+}
+
+useGLTF.preload(GROUND_MODEL);
+useGLTF.preload(DEBRIS_MODEL);

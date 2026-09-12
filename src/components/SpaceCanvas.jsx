@@ -83,8 +83,8 @@ function JourneyController({ progressRef, phase }) {
   // animation frame by the cinematic follow camera.
   const lastProgressRef = useRef(-1);
 
-  const heroCamPos = useRef(new THREE.Vector3(0, 0, 6));
-  const heroCamLook = useRef(new THREE.Vector3(0, 0, 0));
+  const heroCamPos = useRef(new THREE.Vector3(0, 1.4, 9.5));
+  const heroCamLook = useRef(new THREE.Vector3(0, -0.6, -4));
   // Final framing: pulled back and angled so the moon (lower-foreground)
   // and the row of project planets (upper) are both in frame together,
   // matching the reference "watch the planets" composition.
@@ -104,13 +104,13 @@ function JourneyController({ progressRef, phase }) {
   useFrame(() => {
     const progress = progressRef.current;
     const progressChanged = Math.abs(progress - lastProgressRef.current) > 0.0001;
-    if (!progressChanged) return;
-    lastProgressRef.current = progress;
+
     if (progress < FLIGHT_START) {
       // Idle/hopping: wrapper stays at origin, TacticalAstronaut's own
       // internal useFrame logic drives local hop movement.
       camera.position.copy(heroCamPos.current);
       camera.lookAt(heroCamLook.current);
+      lastProgressRef.current = progress;
       return;
     }
 
@@ -126,11 +126,13 @@ function JourneyController({ progressRef, phase }) {
     const lookTarget = new THREE.Vector3().lerpVectors(heroCamLook.current, moonCamLook.current, t);
     camera.lookAt(lookTarget);
 
-    // Ensure camera stays at final position in seated phase
+    // Ensure camera stays at final position in seated phase even when scrolling stops
     if (progress >= 0.95) {
       camera.position.copy(moonCamPos.current);
       camera.lookAt(moonCamLook.current);
     }
+
+    lastProgressRef.current = progress;
   });
 
   return (
@@ -235,14 +237,27 @@ const SpaceCanvas = () => {
           </Suspense>
 
           <Suspense fallback={null}>
-            <CrashSite visible={astronautPhase === 'sleeping' || astronautPhase === 'waking'} />
+            {/* Stays visible through idle/hopping/launching too — previously
+                vanished the instant waking ended, before hopping even
+                started, which read as an abrupt cut rather than one
+                continuous place. Now only disappears once he's actually
+                departed (flying onward), not the moment he stands up. */}
+            <CrashSite
+              visible={
+                astronautPhase === 'sleeping'
+                || astronautPhase === 'waking'
+                || astronautPhase === 'idle'
+                || astronautPhase === 'hopping'
+                || astronautPhase === 'launching'
+              }
+            />
           </Suspense>
 
           <Suspense fallback={null}>
             <MoonScene
               moonPosition={MOON_POSITION}
               moonRadius={MOON_RADIUS}
-              planetsVisible={astronautPhase === 'landing' || astronautPhase === 'seated'}
+              planetsVisible={true}
             />
           </Suspense>
 

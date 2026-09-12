@@ -112,8 +112,6 @@ const PROJECTS = [
   {
     name: 'Kartz',
     color: '#a855f7',
-    // Use the compact Earth-like planet asset here. The previous LV-426 file
-    // is a large environment/base mesh rather than a clean spherical planet.
     modelPath: '/models/little_planet_earth.glb',
     size: 0.9,
   },

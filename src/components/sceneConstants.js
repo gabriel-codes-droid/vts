@@ -47,10 +47,25 @@ export const PLANET_ROW_Y = MOON_CENTER[1] + MOON_RADIUS + 1.0;
 export const PLANET_ROW_Z = MOON_CENTER[2] - 1.8;
 export const PLANET_ROW_SPACING = 2.2;
 
-// Opening crash-site composition. The Halo wreckage asset is authored Z-up,
-// so CrashSite rotates it into the scene's Y-up coordinate system. The bot
-// sleeps on the foreground rubble before waking and hopping to the cubes.
-export const CRASH_SITE_POSITION = [0, -0.8, -6.0];
-// Lower/bring the bot slightly forward so the sleeping pose is readable on
-// the foreground rubble instead of being lost above the wreckage silhouette.
-export const CRASH_SLEEP_POSITION = [0, -1.2, -2.5];
+// Opening crash-site composition. alien_planet_lv-426.glb is used as the
+// ground — a big landscape-scale sphere the bot sleeps on top of, same
+// "center + radius, surface point derived from both" pattern already proven
+// for the moon (so the sleep position always matches wherever the ground is
+// actually rendered, instead of a separately-guessed coordinate). Radius
+// picked deliberately large (bigger than the moon's) for the "vast
+// landscape, tiny mech" framing requested — needs visual confirmation like
+// every other number here.
+export const GROUND_CENTER = [0, -10, -6];
+export const GROUND_RADIUS = 14;
+export const CRASH_SLEEP_POSITION = [
+  GROUND_CENTER[0],
+  GROUND_CENTER[1] + GROUND_RADIUS * 0.85,
+  GROUND_CENTER[2] + 2,
+];
+
+// Halo wreckage used as distant scattered debris, not the ground itself —
+// positioned well off to the side and back so its detail (the reason it's
+// 106MB) isn't something every visitor pays for without ever seeing it up
+// close. Single instance, deliberately not repeated given the file size.
+export const DEBRIS_POSITION = [13, -4, -26];
+export const DEBRIS_WIDTH = 16;
