@@ -94,27 +94,28 @@ function PlanetGLB({ position, size, color, name, modelPath }) {
   );
 }
 
-// 4 project planets — alternating between the two GLB models you provided.
-// Each project gets ONE planet (no double planet per project), and sizes are
-// larger so the moon + planets read as substantial objects in the scene.
+// 4 project planets — each slot uses a clean spherical asset and the shared
+// auto-normalize/recenter logic keeps every model on the same gallery line.
 const PROJECTS = [
   {
     name: 'Healthcare',
     color: '#00d4ff',
-    modelPath: '/models/little_planet_earth.glb',
+    modelPath: '/models/alien_planet.glb',
     size: 0.9,
   },
   {
     name: 'DineConnect',
     color: '#ff6b35',
-    modelPath: '/models/planet_earth.glb',
+    modelPath: '/models/lava_planet.glb',
     size: 1.0,
   },
   {
     name: 'Kartz',
     color: '#a855f7',
+    // Use the compact Earth-like planet asset here. The previous LV-426 file
+    // is a large environment/base mesh rather than a clean spherical planet.
     modelPath: '/models/little_planet_earth.glb',
-    size: 0.85,
+    size: 0.9,
   },
   {
     name: 'Dashboard',
@@ -124,19 +125,21 @@ const PROJECTS = [
   },
 ];
 
-export default function MoonScene({ moonPosition, moonRadius }) {
+export default function MoonScene({ moonPosition, moonRadius, planetsVisible = true }) {
   const spacing = PLANET_ROW_SPACING;
   const planetY = PLANET_ROW_Y;
 
   // Preload all planet + moon models so they pop in instantly.
   useGLTF.preload('/models/moon.glb');
+  useGLTF.preload('/models/alien_planet.glb');
+  useGLTF.preload('/models/lava_planet.glb');
   useGLTF.preload('/models/little_planet_earth.glb');
   useGLTF.preload('/models/planet_earth.glb');
 
   return (
     <group>
       <MoonModel position={moonPosition} targetRadius={moonRadius} />
-      {PROJECTS.map((project, i) => (
+      {planetsVisible && PROJECTS.map((project, i) => (
         <PlanetGLB
           key={project.name}
           position={[

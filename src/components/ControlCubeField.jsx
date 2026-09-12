@@ -1,15 +1,20 @@
-import ControlCube from './ControlCube';
+import ContainmentStructure from './ContainmentStructure';
 import { HOP_CUBES, HOP_CUBE_SIZE } from './sceneConstants';
 
 // A composed field with real scale and distance variety. Front cubes trimmed
 // down further so they don't dominate; hop cubes kept at a clear, walkable
 // size; far/back layer pushed deep and made numerous so dragging around the
 // scene reveals cubes at every depth layer.
-const ControlCubeField = ({ cubeConfigurations = [] }) => {
+const ControlCubeField = ({
+  cubeConfigurations = [],
+  visible = true,
+  platformsVisible = true,
+  firstPlatformOnly = false,
+}) => {
   const defaultConfigurations = [
     // Front cluster — noticeably smaller now
-    { position: [-4.8, 1.8, -1.5], scale: 0.5, rotationSpeedX: 0.25, rotationSpeedY: 0.35, floatSpeed: 0.4, floatAmplitude: 0.3, phase: 0.4, driftAmplitude: 0.5 },
-    { position: [5.1, -0.6, -1.2], scale: 0.45, rotationSpeedX: 0.3, rotationSpeedY: 0.22, floatSpeed: 0.35, floatAmplitude: 0.28, phase: 2.8, driftAmplitude: 0.45 },
+    { position: [-6.2, 1.8, -2.8], scale: 0.44, rotationSpeedX: 0.25, rotationSpeedY: 0.35, floatSpeed: 0.4, floatAmplitude: 0.3, phase: 0.4, driftAmplitude: 0.5 },
+    { position: [6.4, -0.6, -2.6], scale: 0.4, rotationSpeedX: 0.3, rotationSpeedY: 0.22, floatSpeed: 0.35, floatAmplitude: 0.28, phase: 2.8, driftAmplitude: 0.45 },
 
     // Mid-distance — spread wider
     { position: [-3.5, -1.8, -5.5], scale: 0.38, rotationSpeedX: 0.4, rotationSpeedY: 0.5, floatSpeed: 0.55, floatAmplitude: 0.24, phase: 1.1, driftAmplitude: 0.35 },
@@ -39,6 +44,17 @@ const ControlCubeField = ({ cubeConfigurations = [] }) => {
     { position: [-9.5, -8.5, -31.0], scale: 0.1, rotationSpeedX: 0.5, rotationSpeedY: 0.3, floatSpeed: 0.74, floatAmplitude: 0.1, phase: 13.6, driftAmplitude: 0.13 },
     { position: [10.8, -7.8, -34.0], scale: 0.09, rotationSpeedX: 0.44, rotationSpeedY: 0.4, floatSpeed: 0.7, floatAmplitude: 0.1, phase: 14.3, driftAmplitude: 0.12 },
 
+    // Additional visible depth ring — farther than the hero cubes, but still
+    // large enough to read when the camera is dragged around the scene.
+    { position: [-7.0, 4.8, -28.0], scale: 0.12, rotationSpeedX: 0.34, rotationSpeedY: 0.42, floatSpeed: 0.62, floatAmplitude: 0.11, phase: 26.1, driftAmplitude: 0.16 },
+    { position: [7.2, 4.0, -30.5], scale: 0.11, rotationSpeedX: 0.38, rotationSpeedY: 0.36, floatSpeed: 0.58, floatAmplitude: 0.1, phase: 26.8, driftAmplitude: 0.15 },
+    { position: [-6.5, -5.0, -33.0], scale: 0.1, rotationSpeedX: 0.42, rotationSpeedY: 0.3, floatSpeed: 0.66, floatAmplitude: 0.1, phase: 27.5, driftAmplitude: 0.14 },
+    { position: [8.0, -4.5, -35.0], scale: 0.095, rotationSpeedX: 0.32, rotationSpeedY: 0.48, floatSpeed: 0.64, floatAmplitude: 0.09, phase: 28.2, driftAmplitude: 0.14 },
+    { position: [-2.5, 7.0, -38.0], scale: 0.08, rotationSpeedX: 0.36, rotationSpeedY: 0.34, floatSpeed: 0.6, floatAmplitude: 0.08, phase: 28.9, driftAmplitude: 0.12 },
+    { position: [3.8, -7.0, -40.5], scale: 0.075, rotationSpeedX: 0.3, rotationSpeedY: 0.4, floatSpeed: 0.68, floatAmplitude: 0.08, phase: 29.6, driftAmplitude: 0.11 },
+    { position: [-10.5, 0.5, -43.0], scale: 0.07, rotationSpeedX: 0.34, rotationSpeedY: 0.44, floatSpeed: 0.62, floatAmplitude: 0.07, phase: 30.3, driftAmplitude: 0.1 },
+    { position: [11.0, 1.5, -46.0], scale: 0.065, rotationSpeedX: 0.28, rotationSpeedY: 0.38, floatSpeed: 0.66, floatAmplitude: 0.07, phase: 31.0, driftAmplitude: 0.1 },
+
     // Deep back layer — visible when dragging around the scene
     { position: [-16.0, 8.5, -35.0], scale: 0.08, rotationSpeedX: 0.4, rotationSpeedY: 0.3, floatSpeed: 0.72, floatAmplitude: 0.08, phase: 15.5, driftAmplitude: 0.11 },
     { position: [17.5, 5.2, -38.0], scale: 0.09, rotationSpeedX: 0.35, rotationSpeedY: 0.4, floatSpeed: 0.68, floatAmplitude: 0.09, phase: 16.2, driftAmplitude: 0.12 },
@@ -58,30 +74,37 @@ const ControlCubeField = ({ cubeConfigurations = [] }) => {
     <group>
       {/* Hop-platform cubes: the character actually stands/hops on these,
           landing exactly on each one's top face (see sceneConstants.js).
-          `stationary` keeps them from drifting out from under his feet. */}
-      {HOP_CUBES.map((position, index) => (
-        <ControlCube
-          key={`hop-${index}`}
-          position={position}
-          size={HOP_CUBE_SIZE}
-          stationary
-          rotationSpeedX={0.08}
-          rotationSpeedY={0.1}
-        />
-      ))}
-      {configurations.map((config, index) => (
-        <ControlCube
-          key={index}
-          position={config.position}
-          scale={config.scale}
-          rotationSpeedX={config.rotationSpeedX}
-          rotationSpeedY={config.rotationSpeedY}
-          floatSpeed={config.floatSpeed}
-          floatAmplitude={config.floatAmplitude}
-          phase={config.phase}
-          driftAmplitude={config.driftAmplitude}
-        />
-      ))}
+          `stationary` keeps them from drifting out from under his feet.
+          These remain available during the crash asset's first load so the
+          opening never feels like the character has no landing surface. */}
+      <group visible={platformsVisible}>
+        {HOP_CUBES.map((position, index) => (firstPlatformOnly && index > 0 ? null : (
+          <ContainmentStructure
+            key={`hop-${index}`}
+            position={position}
+            size={HOP_CUBE_SIZE}
+            stationary
+            flattenY={index === 0 ? 0.7 : 1}
+            rotationSpeedX={0.08}
+            rotationSpeedY={0.1}
+          />
+        )))}
+      </group>
+      <group visible={visible}>
+        {configurations.map((config, index) => (
+          <ContainmentStructure
+            key={index}
+            position={config.position}
+            scale={config.scale}
+            rotationSpeedX={config.rotationSpeedX}
+            rotationSpeedY={config.rotationSpeedY}
+            floatSpeed={config.floatSpeed}
+            floatAmplitude={config.floatAmplitude}
+            phase={config.phase}
+            driftAmplitude={config.driftAmplitude}
+          />
+        ))}
+      </group>
     </group>
   );
 };

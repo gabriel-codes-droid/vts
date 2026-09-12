@@ -8,6 +8,7 @@ import {
   PLANET_ROW_Z,
   LAUNCH_POINT,
   FLIGHT_APEX,
+  CRASH_SLEEP_POSITION,
 } from './sceneConstants';
 
 const ASTRONAUT_MODEL = '/models/bot_mecha_warrior.glb';
@@ -17,6 +18,8 @@ const CHARACTER_SCALE = 0.68;
 useGLTF.preload(ASTRONAUT_MODEL);
 useGLTF.preload(JETPACK_MODEL);
 useFBX.preload('/models/idle.fbx');
+useFBX.preload('/models/stroke_shaking_head.fbx');
+useFBX.preload('/models/waking.fbx');
 useFBX.preload('/models/jump.fbx');
 useFBX.preload('/models/flying.fbx');
 useFBX.preload('/models/landing.fbx');
@@ -78,6 +81,8 @@ export default function TacticalAstronaut({ phase, position = [0, 0, 0], scale =
   // These are the exact project copies of Idle.fbx, Mutant Jumping.fbx,
   // Flying.fbx, Landing.fbx, and Sitting Idle.fbx from the 3d Models folder.
   const idleAsset = useFBX('/models/idle.fbx');
+  const sleepingAsset = useFBX('/models/stroke_shaking_head.fbx');
+  const wakingAsset = useFBX('/models/waking.fbx');
   const mutantJumpAsset = useFBX('/models/jump.fbx');
   const flyAsset = useFBX('/models/flying.fbx');
   const landAsset = useFBX('/models/landing.fbx');
@@ -91,6 +96,17 @@ export default function TacticalAstronaut({ phase, position = [0, 0, 0], scale =
   const targetBones = useMemo(() => {
     const result = {};
     astronaut.traverse((object) => { if (object.isBone) result[object.name] = object; });
+    // One-time diagnostic — open the browser console (F12) and check this
+    // if facing/twist issues persist. Lists every bone name (to confirm the
+    // BONE_MAP entries and find any unmapped twist bones) and the model's
+    // raw bounding box (a box longer in Z than X, off-center toward -Z or
+    // +Z, is a real hint at which way it was authored to face).
+    if (typeof window !== 'undefined' && !window.__astronautBonesLogged) {
+      window.__astronautBonesLogged = true;
+      console.log('[TacticalAstronaut] bone names:', Object.keys(result));
+      const box = new THREE.Box3().setFromObject(astronaut);
+      console.log('[TacticalAstronaut] bind-pose bounding box:', box.min, box.max);
+    }
     return result;
   }, [astronaut]);
   const sourceRestLocal = useMemo(() => Object.fromEntries(
@@ -125,19 +141,26 @@ export default function TacticalAstronaut({ phase, position = [0, 0, 0], scale =
   const targetPoseWorld = useRef({});
   const sourceMixer = useMemo(() => new THREE.AnimationMixer(mutantJumpAsset), [mutantJumpAsset]);
   const actions = useMemo(() => ({
+    sleeping: sourceMixer.clipAction(sleepingAsset.animations[0], mutantJumpAsset),
+    waking: sourceMixer.clipAction(wakingAsset.animations[0], mutantJumpAsset),
     idle: sourceMixer.clipAction(idleAsset.animations[0], mutantJumpAsset),
     hopping: sourceMixer.clipAction(mutantJumpAsset.animations[0], mutantJumpAsset),
     launching: sourceMixer.clipAction(mutantJumpAsset.animations[0], mutantJumpAsset),
     flying: sourceMixer.clipAction(flyAsset.animations[0], mutantJumpAsset),
     landing: sourceMixer.clipAction(landAsset.animations[0], mutantJumpAsset),
     seated: sourceMixer.clipAction(sitAsset.animations[0], mutantJumpAsset),
-  }), [sourceMixer, idleAsset, mutantJumpAsset, flyAsset, landAsset, sitAsset]);
+  }), [sourceMixer, sleepingAsset, wakingAsset, idleAsset, mutantJumpAsset, flyAsset, landAsset, sitAsset]);
 
   useEffect(() => {
     const action = actions?.[phase];
     if (!action) return;
     Object.values(actions).forEach((item) => item.stop());
-    action.reset().setLoop(THREE.LoopRepeat, Infinity).fadeIn(0.28).play();
+    const oneShot = phase === 'waking' || phase === 'landing';
+    action.reset()
+      .setLoop(oneShot ? THREE.LoopOnce : THREE.LoopRepeat, oneShot ? 1 : Infinity)
+      .fadeIn(0.28)
+      .play();
+    action.clampWhenFinished = oneShot;
     action.setEffectiveTimeScale(phase === 'flying' ? 0.48 : phase === 'hopping' ? 0.72 : 1);
     activeAction.current = action;
     return () => action.fadeOut(0.12);
@@ -218,11 +241,23 @@ export default function TacticalAstronaut({ phase, position = [0, 0, 0], scale =
     }
 
 
+    if (phase === 'sleeping' || phase === 'waking') {
+      hopStart.current = null;
+      group.current.position.set(...CRASH_SLEEP_POSITION);
+      group.current.rotation.set(0, 0, 0);
+      hopPositionRef?.current.copy(group.current.position);
+      return;
+    }
     if (phase === 'idle') {
       hopStart.current = null; hopIndex.current = 0;
+      // After waking, settle onto the large left platform so the transition
+      // has a readable resting beat before the character starts hopping. The
+      // platform is intentionally flat, so the mech lies across its surface.
+      const p = hopPoints[0] || CRASH_SLEEP_POSITION;
+      group.current.rotation.x = THREE.MathUtils.damp(group.current.rotation.x, -Math.PI / 2, 6, delta);
       group.current.rotation.y = hopDirRef.current.z;
-      const p = hopPoints[0] || [0, 0, 0];
-      group.current.position.set(p[0], p[1] - FOOT_OFFSET + Math.sin(t * 2) * 0.01, p[2]);
+      group.current.rotation.z = 0;
+      group.current.position.set(p[0], p[1] + 0.26, p[2]);
       hopPositionRef?.current.copy(group.current.position);
       return;
     }
@@ -230,11 +265,14 @@ export default function TacticalAstronaut({ phase, position = [0, 0, 0], scale =
       if (hopStart.current === null) hopStart.current = t;
       const elapsed = t - hopStart.current;
       const progress = (elapsed / 1.8) % 1;
+      const hopPath = hopPoints;
       // Advance hop index only after a full cycle completes, not on the first
       // rendered frame — prevents the hop index from immediately jumping ahead.
-      if (elapsed > 0.05 && progress < 0.02) hopIndex.current = (hopIndex.current + 1) % hopPoints.length;
-      const from = hopPoints[hopIndex.current] || [0, 0, 0];
-      const to = hopPoints[(hopIndex.current + 1) % hopPoints.length] || from;
+      if (elapsed > 0.05 && progress < 0.02) {
+        hopIndex.current = Math.min(hopIndex.current + 1, hopPath.length - 2);
+      }
+      const from = hopPath[hopIndex.current] || hopPath[0];
+      const to = hopPath[hopIndex.current + 1] || from;
 
       // Face the direction of travel so the legs push forward during the hop
       // instead of sliding sideways. Yaw rotates around the up axis so the
@@ -246,6 +284,7 @@ export default function TacticalAstronaut({ phase, position = [0, 0, 0], scale =
         hopDirRef.current.lerp(new THREE.Vector3(0, 0, targetYaw), 0.2);
         group.current.rotation.y = hopDirRef.current.z;
       }
+      group.current.rotation.x = THREE.MathUtils.damp(group.current.rotation.x, 0, 8, delta);
 
       // Vertical hop: lerp X/Z linearly, Y follows a sine arc over the hop.
       group.current.position.set(
@@ -266,13 +305,13 @@ export default function TacticalAstronaut({ phase, position = [0, 0, 0], scale =
         MOON_SEAT_POSITION[1] - FOOT_OFFSET,
         MOON_SEAT_POSITION[2],
       );
-      // The mecha model faces -Z by default, so we need to rotate it 180°
-      // to face +Z toward the planets, then add the calculated angle
+      // The mecha asset's authored forward axis is +Z. The project planets
+      // are on -Z from the moon seat, so use the direct target angle; the old
+      // extra PI flip made the seated bot face away from the planets.
       const planetDx = 0 - MOON_SEAT_POSITION[0];
       const planetDz = PLANET_ROW_Z - MOON_SEAT_POSITION[2];
       const angleToPlanets = Math.atan2(planetDx, planetDz);
-      // Add Math.PI (180°) to flip the model's default -Z facing to +Z
-      group.current.rotation.set(0, angleToPlanets + Math.PI, 0);
+      group.current.rotation.set(0, angleToPlanets, 0);
       // Refresh the parent matrix before measuring: the group's newly-set
       // position must be included in the world-space bounds.
       group.current.updateMatrixWorld(true);
@@ -285,10 +324,20 @@ export default function TacticalAstronaut({ phase, position = [0, 0, 0], scale =
         seatedBounds.expandByObject(object);
       });
       if (!seatedBounds.isEmpty()) {
-        // Bounds are world-space values, while this group is scaled by
-        // CHARACTER_SCALE. Convert the world-space correction back into the
-        // group's local units so the visible feet actually touch the moon.
-        group.current.getWorldScale(seatedWorldScale);
+        // Bounds are world-space values. `position.y` is interpreted in the
+        // PARENT's coordinate space, not this group's own — so the correct
+        // divisor is the parent's world scale, not this group's own world
+        // scale. This group's own world scale already includes its own
+        // `scale * CHARACTER_SCALE` factor (≈0.68) stacked on top of the
+        // parent's, which was making every correction ~47% too large
+        // (dividing by a smaller number than it should), causing a
+        // consistent overshoot upward past the actual target surface —
+        // exactly the "sits above the surface" symptom.
+        if (group.current.parent) {
+          group.current.parent.getWorldScale(seatedWorldScale);
+        } else {
+          seatedWorldScale.set(1, 1, 1);
+        }
         const worldScaleY = Math.max(Math.abs(seatedWorldScale.y), 0.0001);
         group.current.position.y += (MOON_SEAT_POSITION[1] - seatedBounds.min.y) / worldScaleY;
         group.current.updateMatrixWorld(true);
@@ -298,7 +347,7 @@ export default function TacticalAstronaut({ phase, position = [0, 0, 0], scale =
     }
 
     const liveJourneyProgress = journeyProgressRef?.current ?? journeyProgress;
-    const flightT = THREE.MathUtils.clamp((liveJourneyProgress - 0.42) / 0.46, 0, 1);
+    const flightT = THREE.MathUtils.clamp((liveJourneyProgress - 0.39) / 0.61, 0, 1);
     const eased = flightT * flightT * (3 - 2 * flightT);
 
     // Two-leg path: straight up off the last hop cube first (a real
@@ -338,6 +387,8 @@ export default function TacticalAstronaut({ phase, position = [0, 0, 0], scale =
   // flying. Disappears the moment landing starts (previously stayed
   // visible through landing too) — gone well before he's seated, and never
   // shown during idle/hopping/seated.
+  // The jetpack is a flight-only attachment: it stays on the spine through
+  // launch and slow flight, then disappears immediately when landing begins.
   jetpackClone.visible = phase === 'launching' || phase === 'flying';
 
   return (

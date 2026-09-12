@@ -1,11 +1,12 @@
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, Environment } from '@react-three/drei';
+import { EffectComposer, Bloom } from '@react-three/postprocessing';
 import { Suspense, useRef, useState, useEffect } from 'react';
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import * as THREE from 'three';
 import ControlCubeField from './ControlCubeField';
-import CustomStarField from './CustomStarField';
+import CrashSite from './CrashSite';
 import TacticalAstronaut from './TacticalAstronaut';
 import MoonScene from './MoonScene';
 import {
@@ -19,9 +20,13 @@ gsap.registerPlugin(ScrollTrigger);
 
 // Scroll-progress bands mapped to each phase of the journey.
 const PHASE_BANDS = [
-  { end: 0.12, phase: 'idle' },
-  { end: 0.32, phase: 'hopping' },
-  { end: 0.42, phase: 'launching' },
+  // Give the opening enough scroll distance to be seen: rubble/sleep first,
+  // then the wake-up before the first platform hop begins.
+  { end: 0.14, phase: 'sleeping' },
+  { end: 0.22, phase: 'waking' },
+  { end: 0.27, phase: 'idle' },
+  { end: 0.39, phase: 'hopping' },
+  { end: 0.48, phase: 'launching' },
   { end: 0.75, phase: 'flying' },
   { end: 0.88, phase: 'landing' },
   { end: 1.0, phase: 'seated' },
@@ -36,12 +41,30 @@ function phaseForProgress(progress) {
 
 const MOON_POSITION = MOON_CENTER;
 
-const FLIGHT_START = 0.42; // matches 'launching' band start
+const FLIGHT_START = 0.39; // matches the launching path start
 const FLIGHT_END = 1.0;
 
 function smoothstep(t) {
   const c = Math.min(Math.max(t, 0), 1);
   return c * c * (3 - 2 * c);
+}
+
+// Lightweight visual fallback while the large cube GLB is being parsed. The
+// real alien cube replaces this at the same waypoint once it is ready.
+function OpeningPlatform({ visible = true }) {
+  const [x, y, z] = HOP_WAYPOINTS[0];
+  return (
+    <mesh position={[x, y - 0.18, z]} visible={visible}>
+      <boxGeometry args={[0.98, 0.36, 0.98]} />
+      <meshStandardMaterial
+        color="#0A2235"
+        emissive="#00BFFF"
+        emissiveIntensity={0.45}
+        metalness={0.75}
+        roughness={0.38}
+      />
+    </mesh>
+  );
 }
 
 /**
@@ -55,6 +78,10 @@ function smoothstep(t) {
 function JourneyController({ progressRef, phase }) {
   const hopPositionRef = useRef(new THREE.Vector3());
   const { camera } = useThree();
+  // Follow scroll only while progress is changing. Once the scroll settles,
+  // OrbitControls owns the camera so a cursor drag is not overwritten every
+  // animation frame by the cinematic follow camera.
+  const lastProgressRef = useRef(-1);
 
   const heroCamPos = useRef(new THREE.Vector3(0, 0, 6));
   const heroCamLook = useRef(new THREE.Vector3(0, 0, 0));
@@ -76,6 +103,9 @@ function JourneyController({ progressRef, phase }) {
 
   useFrame(() => {
     const progress = progressRef.current;
+    const progressChanged = Math.abs(progress - lastProgressRef.current) > 0.0001;
+    if (!progressChanged) return;
+    lastProgressRef.current = progress;
     if (progress < FLIGHT_START) {
       // Idle/hopping: wrapper stays at origin, TacticalAstronaut's own
       // internal useFrame logic drives local hop movement.
@@ -95,6 +125,12 @@ function JourneyController({ progressRef, phase }) {
     camera.position.lerpVectors(heroCamPos.current, moonCamPos.current, t);
     const lookTarget = new THREE.Vector3().lerpVectors(heroCamLook.current, moonCamLook.current, t);
     camera.lookAt(lookTarget);
+
+    // Ensure camera stays at final position in seated phase
+    if (progress >= 0.95) {
+      camera.position.copy(moonCamPos.current);
+      camera.lookAt(moonCamLook.current);
+    }
   });
 
   return (
@@ -114,7 +150,7 @@ function JourneyController({ progressRef, phase }) {
 const SpaceCanvas = () => {
   const canvasRef = useRef();
   const scrollTrackRef = useRef(null);
-  const [astronautPhase, setAstronautPhase] = useState('idle');
+  const [astronautPhase, setAstronautPhase] = useState('sleeping');
   const scrollProgressRef = useRef(0);
 
   useEffect(() => {
@@ -167,30 +203,81 @@ const SpaceCanvas = () => {
             <Environment files="/models/night-sky.exr" background={false} />
           </Suspense>
 
-          <Suspense fallback={null}>
-            <CustomStarField count={3000} radius={100} />
-
-            <ControlCubeField />
-
-            <MoonScene moonPosition={MOON_POSITION} moonRadius={MOON_RADIUS} />
-
-            <JourneyController progressRef={scrollProgressRef} phase={astronautPhase} />
-
-            <OrbitControls
-              enableZoom={false}
-              enablePan={false}
-              maxPolarAngle={Math.PI / 1.8}
-              minPolarAngle={Math.PI / 4}
-              enableDamping={true}
-              dampingFactor={0.04}
+          {/* Keep the starfield and controls responsive while the larger GLB
+              cube field is parsed. The previous single boundary kept the
+              entire scene black until every cube finished loading. */}
+          <Suspense fallback={(
+            <OpeningPlatform
+              visible={
+                astronautPhase === 'sleeping'
+                || astronautPhase === 'waking'
+                || astronautPhase === 'idle'
+                || astronautPhase === 'hopping'
+              }
+            />
+          )}>
+            <ControlCubeField
+              // Show cubes from the start (partially below view) so they don't
+              // spawn out of nowhere. They become more prominent during hopping.
+              visible={true}
+              platformsVisible={
+                astronautPhase === 'sleeping'
+                || astronautPhase === 'waking'
+                || astronautPhase === 'idle'
+                || astronautPhase === 'hopping'
+              }
+              firstPlatformOnly={
+                astronautPhase === 'sleeping'
+                || astronautPhase === 'waking'
+                || astronautPhase === 'idle'
+              }
             />
           </Suspense>
+
+          <Suspense fallback={null}>
+            <CrashSite visible={astronautPhase === 'sleeping' || astronautPhase === 'waking'} />
+          </Suspense>
+
+          <Suspense fallback={null}>
+            <MoonScene
+              moonPosition={MOON_POSITION}
+              moonRadius={MOON_RADIUS}
+              planetsVisible={astronautPhase === 'landing' || astronautPhase === 'seated'}
+            />
+          </Suspense>
+
+          <Suspense fallback={null}>
+            <JourneyController progressRef={scrollProgressRef} phase={astronautPhase} />
+          </Suspense>
+
+          <OrbitControls
+            enableRotate={true}
+            enableZoom={false}
+            enablePan={false}
+            rotateSpeed={0.45}
+            maxPolarAngle={Math.PI / 1.8}
+            minPolarAngle={Math.PI / 4}
+            enableDamping={true}
+            dampingFactor={0.04}
+          />
+
+          <EffectComposer>
+            <Bloom
+              luminanceThreshold={0.2}
+              luminanceSmoothing={0.9}
+              intensity={1.5}
+              radius={0.5}
+            />
+          </EffectComposer>
         </Canvas>
 
         <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 z-10 pointer-events-none">
           <span className="px-4 py-2 text-cyan-400/70 text-[11px] font-syne font-bold uppercase tracking-[0.2em] border border-cyan-500/20 rounded-full">
             {astronautPhase}
           </span>
+        </div>
+        <div className="absolute bottom-20 left-1/2 -translate-x-1/2 z-10 pointer-events-none text-[10px] uppercase tracking-[0.24em] text-slate-300/60 whitespace-nowrap">
+          Drag to orbit · Scroll to journey
         </div>
       </div>
 

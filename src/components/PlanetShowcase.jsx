@@ -14,7 +14,7 @@ import {
 // identity, orbit, and floating project label like the supplied reference.
 const PROJECTS = [
   {
-    path: '/models/little_planet_earth.glb',
+    path: '/models/alien_planet.glb',
     tint: '#38bdf8',
     icon: '+',
     title: 'HEALTHCARE',
@@ -22,7 +22,7 @@ const PROJECTS = [
     description: 'Referral system',
   },
   {
-    path: '/models/planet_earth.glb',
+    path: '/models/little_planet_earth.glb',
     tint: '#4ade80',
     icon: '⌁',
     title: 'DINECONNECT',
@@ -30,7 +30,7 @@ const PROJECTS = [
     description: 'Food and restaurant platform',
   },
   {
-    path: '/models/little_planet_earth.glb',
+    path: '/models/lava_planet.glb',
     tint: '#fb923c',
     icon: '▥',
     title: 'PMD',
@@ -48,10 +48,8 @@ const PROJECTS = [
 ].map((project, index) => ({
   ...project,
   index,
-  // Small dot, not a big model — matches the reference's simple cluster of
-  // small colored orbs just above the moon, not individually detailed
-  // planet models spread in a row.
-  scale: 0.16,
+  // Use larger scale for actual 3D planet models
+  scale: 0.3,
   position: [
     MOON_CENTER[0] + (index - (4 - 1) / 2) * PLANET_ROW_SPACING,
     PLANET_ROW_Y,
@@ -106,6 +104,15 @@ function ProjectLabel({ project }) {
 
 function PlanetModel({ project, visible }) {
   const ref = useRef(null);
+  const planet = useGLTF(project.path);
+
+  const planetModel = useMemo(() => {
+    const clone = planet.scene.clone(true);
+    const box = new THREE.Box3().setFromObject(clone);
+    const size = box.getSize(new THREE.Vector3());
+    clone.scale.setScalar(project.scale / (Math.max(size.x, size.y, size.z) / 2 || 1));
+    return clone;
+  }, [planet.scene, project.scale]);
 
   useFrame((_, delta) => {
     if (ref.current) ref.current.rotation.y += delta * (0.12 + project.index * 0.025);
@@ -113,19 +120,8 @@ function PlanetModel({ project, visible }) {
 
   return (
     <group position={project.position} visible={visible} ref={ref}>
-      {/* Solid small sphere — the reference image shows plain colored dots,
-          not detailed planet models with visible surface texture at this
-          scale (a full GLB model would be wasted detail this small, and
-          didn't match the intended composition anyway). */}
-      <mesh>
-        <sphereGeometry args={[project.scale, 20, 20]} />
-        <meshStandardMaterial color={project.tint} emissive={project.tint} emissiveIntensity={0.55} roughness={0.4} />
-      </mesh>
-      <mesh scale={1.6}>
-        <sphereGeometry args={[project.scale, 16, 16]} />
-        <meshBasicMaterial color={project.tint} transparent opacity={0.18} depthWrite={false} toneMapped={false} />
-      </mesh>
-      <pointLight color={project.tint} intensity={0.4} distance={3} />
+      <primitive object={planetModel} />
+      <pointLight color={project.tint} intensity={0.6} distance={4} />
       {visible && <ProjectLabel project={project} />}
     </group>
   );
@@ -156,6 +152,9 @@ export default function PlanetShowcase({ showMoon, showPlanets }) {
   );
 }
 
-// No longer preloading per-project planet GLBs — the gallery now renders
-// small procedural dots (see PlanetModel below), not individual models.
+// Preload all planet models for better performance
+useGLTF.preload('/models/alien_planet.glb');
+useGLTF.preload('/models/little_planet_earth.glb');
+useGLTF.preload('/models/lava_planet.glb');
+useGLTF.preload('/models/planet_earth.glb');
 useGLTF.preload('/models/moon.glb');

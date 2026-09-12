@@ -13,8 +13,11 @@
 
 export const HOP_CUBE_SIZE = 0.8;
 export const HOP_WAYPOINTS = [
-  [2.0, 1.0, 0.5],
+  // The first platform is the large cube to the mech's left in the hero
+  // framing; the bot is planted here after waking before continuing across
+  // the remaining platforms.
   [-1.0, -0.2, -0.5],
+  [0.8, 0.35, -1.2],
   [1.2, -1.0, -1.5],
 ];
 export const HOP_CUBES = HOP_WAYPOINTS.map((point) => [
@@ -34,8 +37,8 @@ export const MOON_RADIUS = 4.0;
 // than the mathematically hidden back/top pole.
 export const MOON_SEAT_POSITION = [
   MOON_CENTER[0],
-  MOON_CENTER[1] + MOON_RADIUS * 0.82,
-  MOON_CENTER[2] + MOON_RADIUS * 0.57,
+  MOON_CENTER[1] + MOON_RADIUS * 0.95,
+  MOON_CENTER[2] + MOON_RADIUS * 0.65,
 ];
 
 // Planet row sits just above the moon surface. Spacing wide enough for
@@ -43,3 +46,11 @@ export const MOON_SEAT_POSITION = [
 export const PLANET_ROW_Y = MOON_CENTER[1] + MOON_RADIUS + 1.0;
 export const PLANET_ROW_Z = MOON_CENTER[2] - 1.8;
 export const PLANET_ROW_SPACING = 2.2;
+
+// Opening crash-site composition. The Halo wreckage asset is authored Z-up,
+// so CrashSite rotates it into the scene's Y-up coordinate system. The bot
+// sleeps on the foreground rubble before waking and hopping to the cubes.
+export const CRASH_SITE_POSITION = [0, -0.8, -6.0];
+// Lower/bring the bot slightly forward so the sleeping pose is readable on
+// the foreground rubble instead of being lost above the wreckage silhouette.
+export const CRASH_SLEEP_POSITION = [0, -1.2, -2.5];
