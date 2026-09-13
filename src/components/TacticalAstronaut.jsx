@@ -3,16 +3,23 @@ import { useFrame } from '@react-three/fiber';
 import { useFBX, useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
 import { clone as cloneSkinnedScene } from 'three/examples/jsm/utils/SkeletonUtils.js';
-import { MOON_SEAT_POSITION, LAUNCH_POINT, FLIGHT_APEX } from './sceneConstants';
+import {
+  MOON_SEAT_POSITION,
+  PLANET_ROW_Z,
+  LAUNCH_POINT,
+  FLIGHT_APEX,
+  CRASH_SLEEP_POSITION,
+} from './sceneConstants';
 
 const ASTRONAUT_MODEL = '/models/bot_mecha_warrior.glb';
 const JETPACK_MODEL = '/models/jetpack/Jetpack.glb';
 const CHARACTER_SCALE = 0.68;
-const SEATED_ROOT_HEIGHT = 1.53;
 
 useGLTF.preload(ASTRONAUT_MODEL);
 useGLTF.preload(JETPACK_MODEL);
 useFBX.preload('/models/idle.fbx');
+useFBX.preload('/models/stroke_shaking_head.fbx');
+useFBX.preload('/models/waking.fbx');
 useFBX.preload('/models/jump.fbx');
 useFBX.preload('/models/flying.fbx');
 useFBX.preload('/models/landing.fbx');
@@ -39,7 +46,7 @@ const BONE_MAP = {
 // group origin can be placed directly on the shared cube-top waypoint.
 const FOOT_OFFSET = 0;
 
-export default function TacticalAstronaut({ phase, position = [0, 0, 0], scale = 1, hopPoints = [[0, 0, 0]], hopPositionRef, journeyProgress = 0 }) {
+export default function TacticalAstronaut({ phase, position = [0, 0, 0], scale = 1, hopPoints = [[0, 0, 0]], hopPositionRef, journeyProgress = 0, journeyProgressRef }) {
   const group = useRef(null);
   const hopIndex = useRef(0);
   const hopStart = useRef(null);
@@ -54,11 +61,9 @@ export default function TacticalAstronaut({ phase, position = [0, 0, 0], scale =
       const tunedMaterials = materials.map((material) => {
         const tuned = material.clone();
         const isVisor = tuned.name === 'HEAD_1032';
-        // Keep the visor slightly glossy, but make the body read as worn
-        // painted metal instead of a polished chrome toy.
-        tuned.roughness = isVisor ? 0.3 : 0.72;
-        tuned.metalness = isVisor ? 0.12 : 0.62;
-        tuned.envMapIntensity = isVisor ? 0.48 : 0.32;
+        tuned.roughness = isVisor ? 0.38 : 0.85;
+        tuned.metalness = isVisor ? 0.1 : 0.4;
+        tuned.envMapIntensity = isVisor ? 0.35 : 0.2;
         return tuned;
       });
       object.material = Array.isArray(object.material) ? tunedMaterials : tunedMaterials[0];
@@ -70,6 +75,8 @@ export default function TacticalAstronaut({ phase, position = [0, 0, 0], scale =
   // These are the exact project copies of Idle.fbx, Mutant Jumping.fbx,
   // Flying.fbx, Landing.fbx, and Sitting Idle.fbx from the 3d Models folder.
   const idleAsset = useFBX('/models/idle.fbx');
+  const sleepingAsset = useFBX('/models/stroke_shaking_head.fbx');
+  const wakingAsset = useFBX('/models/waking.fbx');
   const mutantJumpAsset = useFBX('/models/jump.fbx');
   const flyAsset = useFBX('/models/flying.fbx');
   const landAsset = useFBX('/models/landing.fbx');
@@ -83,6 +90,12 @@ export default function TacticalAstronaut({ phase, position = [0, 0, 0], scale =
   const targetBones = useMemo(() => {
     const result = {};
     astronaut.traverse((object) => { if (object.isBone) result[object.name] = object; });
+    if (typeof window !== 'undefined' && !window.__astronautBonesLogged) {
+      window.__astronautBonesLogged = true;
+      console.log('[TacticalAstronaut] bone names:', Object.keys(result));
+      const box = new THREE.Box3().setFromObject(astronaut);
+      console.log('[TacticalAstronaut] bind-pose bounding box:', box.min, box.max);
+    }
     return result;
   }, [astronaut]);
   const sourceRestLocal = useMemo(() => Object.fromEntries(
@@ -117,39 +130,55 @@ export default function TacticalAstronaut({ phase, position = [0, 0, 0], scale =
   const targetPoseWorld = useRef({});
   const sourceMixer = useMemo(() => new THREE.AnimationMixer(mutantJumpAsset), [mutantJumpAsset]);
   const actions = useMemo(() => ({
+    sleeping: sourceMixer.clipAction(sleepingAsset.animations[0], mutantJumpAsset),
+    waking: sourceMixer.clipAction(wakingAsset.animations[0], mutantJumpAsset),
     idle: sourceMixer.clipAction(idleAsset.animations[0], mutantJumpAsset),
     hopping: sourceMixer.clipAction(mutantJumpAsset.animations[0], mutantJumpAsset),
     launching: sourceMixer.clipAction(mutantJumpAsset.animations[0], mutantJumpAsset),
     flying: sourceMixer.clipAction(flyAsset.animations[0], mutantJumpAsset),
     landing: sourceMixer.clipAction(landAsset.animations[0], mutantJumpAsset),
     seated: sourceMixer.clipAction(sitAsset.animations[0], mutantJumpAsset),
-  }), [sourceMixer, idleAsset, mutantJumpAsset, flyAsset, landAsset, sitAsset]);
+  }), [sourceMixer, sleepingAsset, wakingAsset, idleAsset, mutantJumpAsset, flyAsset, landAsset, sitAsset]);
 
   useEffect(() => {
     const action = actions?.[phase];
     if (!action) return;
     Object.values(actions).forEach((item) => item.stop());
-    action.reset().setLoop(THREE.LoopRepeat, Infinity).fadeIn(0.28).play();
+    const oneShot = phase === 'waking' || phase === 'landing';
+    action.reset()
+      .setLoop(oneShot ? THREE.LoopOnce : THREE.LoopRepeat, oneShot ? 1 : Infinity)
+      .fadeIn(0.28)
+      .play();
+    action.clampWhenFinished = oneShot;
     action.setEffectiveTimeScale(phase === 'flying' ? 0.48 : phase === 'hopping' ? 0.72 : 1);
     activeAction.current = action;
     return () => action.fadeOut(0.12);
   }, [actions, phase]);
 
+  const hopDirRef = useRef(new THREE.Vector3());
+  const hopPitchRef = useRef(0);
+  const seatedBounds = useMemo(() => new THREE.Box3(), []);
+  const seatedWorldScale = useMemo(() => new THREE.Vector3(), []);
+  const seatedHipBend = useMemo(
+    () => new THREE.Quaternion().setFromEuler(new THREE.Euler(-0.62, 0, 0)),
+    [],
+  );
+  const seatedKneeBend = useMemo(
+    () => new THREE.Quaternion().setFromEuler(new THREE.Euler(0.92, 0, 0)),
+    [],
+  );
+
   useFrame((state, delta) => {
     if (!group.current) return;
     const t = state.clock.getElapsedTime();
 
-    // Reset source bones before advancing the animation. The source clip is
-    // used only as a joint-pose driver; its skinned body, root translation,
-    // and proportions are never rendered or copied onto the astronaut.
+    // Reset source bones before advancing the animation.
     Object.entries(BONE_MAP).forEach(([sourceName]) => {
       if (sourceBones[sourceName] && sourceRestLocal[sourceName]) sourceBones[sourceName].quaternion.copy(sourceRestLocal[sourceName]);
     });
     sourceMixer.update(delta);
 
-    // Convert each FBX world-pose delta into the bot's own bind pose. This
-    // keeps the bot's left/right limb axes and separated leg chains intact;
-    // only rotations are copied, never the FBX mesh or hip position track.
+    // Convert each FBX world-pose delta into the bot's own bind pose.
     const nextTargetPoseWorld = targetPoseWorld.current;
     Object.entries(BONE_MAP).forEach(([sourceName, targetName]) => {
       const sourceBone = sourceBones[sourceName];
@@ -183,24 +212,52 @@ export default function TacticalAstronaut({ phase, position = [0, 0, 0], scale =
       nextTargetPoseWorld[targetName] = poseScratch.desiredTargetWorld.clone();
     });
 
+    // Some mecha clips retain the source rig's bind pose when retargeted.
+    if (phase === 'seated') {
+      ['thigh_stretch_l_057', 'thigh_stretch_r_065'].forEach((name) => {
+        if (targetBones[name]) targetBones[name].quaternion.multiply(seatedHipBend);
+      });
+      ['leg_stretch_l_058', 'leg_stretch_r_066'].forEach((name) => {
+        if (targetBones[name]) targetBones[name].quaternion.multiply(seatedKneeBend);
+      });
+    }
+
+    if (phase === 'sleeping' || phase === 'waking') {
+      hopStart.current = null;
+      group.current.position.set(...CRASH_SLEEP_POSITION);
+      group.current.rotation.set(0, 0, 0);
+      hopPositionRef?.current.copy(group.current.position);
+      return;
+    }
     if (phase === 'idle') {
       hopStart.current = null; hopIndex.current = 0;
-      group.current.rotation.set(0, 0, 0);
-      const p = hopPoints[0] || [0, 0, 0];
-      group.current.position.set(p[0], p[1] - FOOT_OFFSET + Math.sin(t * 2) * 0.01, p[2]);
+      const p = hopPoints[0] || CRASH_SLEEP_POSITION;
+      group.current.rotation.x = THREE.MathUtils.damp(group.current.rotation.x, -Math.PI / 2, 6, delta);
+      group.current.rotation.y = hopDirRef.current.z;
+      group.current.rotation.z = 0;
+      group.current.position.set(p[0], p[1] + 0.26, p[2]);
       hopPositionRef?.current.copy(group.current.position);
       return;
     }
     if (phase === 'hopping') {
       if (hopStart.current === null) hopStart.current = t;
-      group.current.rotation.set(0, 0, 0);
       const elapsed = t - hopStart.current;
       const progress = (elapsed / 1.8) % 1;
-      // Keep the first hop anchored on cube 0; advance only when a complete
-      // hop cycle wraps, rather than incrementing on the first rendered frame.
-      if (elapsed > 0.05 && progress < 0.02) hopIndex.current = (hopIndex.current + 1) % hopPoints.length;
-      const from = hopPoints[hopIndex.current] || [0, 0, 0];
-      const to = hopPoints[(hopIndex.current + 1) % hopPoints.length] || from;
+      const hopPath = hopPoints;
+      if (elapsed > 0.05 && progress < 0.02) {
+        hopIndex.current = Math.min(hopIndex.current + 1, hopPath.length - 2);
+      }
+      const from = hopPath[hopIndex.current] || hopPath[0];
+      const to = hopPath[hopIndex.current + 1] || from;
+
+      const dir = new THREE.Vector3(to[0] - from[0], 0, to[2] - from[2]);
+      if (dir.lengthSq() > 0.001) {
+        const targetYaw = Math.atan2(dir.x, dir.z);
+        hopDirRef.current.lerp(new THREE.Vector3(0, 0, targetYaw), 0.2);
+        group.current.rotation.y = hopDirRef.current.z;
+      }
+      group.current.rotation.x = THREE.MathUtils.damp(group.current.rotation.x, 0, 8, delta);
+
       group.current.position.set(
         THREE.MathUtils.lerp(from[0], to[0], progress),
         THREE.MathUtils.lerp(from[1], to[1], progress) - FOOT_OFFSET + Math.sin(progress * Math.PI) * 0.75,
@@ -211,36 +268,57 @@ export default function TacticalAstronaut({ phase, position = [0, 0, 0], scale =
     }
 
     if (phase === 'seated') {
-      // The final pose is a true moon-surface placement, not the last frame
-      // of the flight interpolation. The mecha faces -Z, toward the project
-      // planets positioned in front of the moon.
       group.current.position.set(
         MOON_SEAT_POSITION[0],
-        MOON_SEAT_POSITION[1] - (SEATED_ROOT_HEIGHT * CHARACTER_SCALE * scale),
+        MOON_SEAT_POSITION[1] - FOOT_OFFSET,
         MOON_SEAT_POSITION[2],
       );
-      group.current.rotation.set(0, Math.PI, 0);
+      const planetDx = 0 - MOON_SEAT_POSITION[0];
+      const planetDz = PLANET_ROW_Z - MOON_SEAT_POSITION[2];
+      const angleToPlanets = Math.atan2(planetDx, planetDz);
+      group.current.rotation.set(0, angleToPlanets, 0);
+      group.current.updateMatrixWorld(true);
+      astronaut.updateMatrixWorld(true);
+      seatedBounds.makeEmpty();
+      astronaut.traverse((object) => {
+        if (!object.isMesh || !object.geometry || jetpackClone.getObjectById(object.id)) return;
+        seatedBounds.expandByObject(object);
+      });
+      if (!seatedBounds.isEmpty()) {
+        if (group.current.parent) {
+          group.current.parent.getWorldScale(seatedWorldScale);
+        } else {
+          seatedWorldScale.set(1, 1, 1);
+        }
+        const worldScaleY = Math.max(Math.abs(seatedWorldScale.y), 0.0001);
+        group.current.position.y += (MOON_SEAT_POSITION[1] - seatedBounds.min.y) / worldScaleY;
+        group.current.updateMatrixWorld(true);
+      }
       hopPositionRef?.current.copy(group.current.position);
       return;
     }
 
-    const flightT = THREE.MathUtils.clamp((journeyProgress - 0.42) / 0.46, 0, 1);
+    const liveJourneyProgress = journeyProgressRef?.current ?? journeyProgress;
+    const flightT = THREE.MathUtils.clamp((liveJourneyProgress - 0.39) / 0.61, 0, 1);
     const eased = flightT * flightT * (3 - 2 * flightT);
-    // Two-leg path: straight up off the last hop cube first (a real
-    // vertical launch, clearing the cube field), then arcs over to land
-    // exactly on the moon's surface (MOON_SEAT_POSITION, derived from the
-    // same MOON_CENTER/MOON_RADIUS PlanetShowcase.jsx renders the moon at).
+
     const launchVec = new THREE.Vector3(...LAUNCH_POINT);
     const apexVec = new THREE.Vector3(...FLIGHT_APEX);
-    const seatVec = new THREE.Vector3(MOON_SEAT_POSITION[0], MOON_SEAT_POSITION[1] - FOOT_OFFSET, MOON_SEAT_POSITION[2]);
+    const seatVec = new THREE.Vector3(
+      MOON_SEAT_POSITION[0],
+      MOON_SEAT_POSITION[1] - FOOT_OFFSET,
+      MOON_SEAT_POSITION[2],
+    );
+
     if (eased < 0.5) {
       group.current.position.lerpVectors(launchVec, apexVec, eased / 0.5);
     } else {
       group.current.position.lerpVectors(apexVec, seatVec, (eased - 0.5) / 0.5);
     }
-    if (journeyProgress < 0.88) group.current.position.y += Math.sin(flightT * Math.PI) * 0.4;
-    group.current.rotation.z = THREE.MathUtils.lerp(0, -0.12, Math.sin(flightT * Math.PI));
-    group.current.rotation.x = THREE.MathUtils.lerp(0, 0.08, Math.sin(flightT * Math.PI));
+
+    const diveAngle = Math.sin(flightT * Math.PI) * (Math.PI / 2);
+    group.current.rotation.x = diveAngle;
+    group.current.rotation.y = 0;
   });
 
   const spine = astronaut.getObjectByName('spine_05_x_08');
@@ -250,17 +328,12 @@ export default function TacticalAstronaut({ phase, position = [0, 0, 0], scale =
     jetpackClone.rotation.set(0, Math.PI, 0);
     jetpackClone.scale.setScalar(0.95);
   }
-  // Only visible for the powered-flight portion of the journey: appears
-  // right as he launches, stays attached through the flight and the
-  // landing touchdown, then disappears once seated — matches a jetpack
-  // that's worn for the flight and set aside on arrival, not a permanent
-  // backpack.
-  jetpackClone.visible = phase === 'launching' || phase === 'flying' || phase === 'landing';
+  jetpackClone.visible = phase === 'launching' || phase === 'flying';
 
   return (
     <group ref={group} position={position} scale={scale * CHARACTER_SCALE}>
       <primitive object={astronaut} />
-      <pointLight position={[0, 1.25, 0.2]} color="#b9d7ff" intensity={1.4} distance={3.4} decay={2} />
+      <pointLight position={[0, 1.25, 0.2]} color="#b9d7ff" intensity={0.6} distance={3} decay={2} />
     </group>
   );
 }
