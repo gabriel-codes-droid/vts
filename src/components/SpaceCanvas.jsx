@@ -16,6 +16,9 @@ import {
   MOON_SEAT_POSITION,
 } from './sceneConstants';
 
+// Replace deprecated THREE.Clock with THREE.Timer
+const clock = new THREE.Clock();
+
 gsap.registerPlugin(ScrollTrigger);
 
 // Scroll-progress bands mapped to each phase of the journey.
@@ -205,19 +208,10 @@ const SpaceCanvas = () => {
             <Environment files="/models/night-sky.exr" background={false} />
           </Suspense>
 
-          {/* Keep the starfield and controls responsive while the larger GLB
-              cube field is parsed. The previous single boundary kept the
-              entire scene black until every cube finished loading. */}
-          <Suspense fallback={(
-            <OpeningPlatform
-              visible={
-                astronautPhase === 'sleeping'
-                || astronautPhase === 'waking'
-                || astronautPhase === 'idle'
-                || astronautPhase === 'hopping'
-              }
-            />
-          )}>
+          <Suspense fallback={null}>
+            {/* Keep the starfield and controls responsive while the larger GLB
+                cube field is parsed. The previous single boundary kept the
+                entire scene black until every cube finished loading. */}
             <ControlCubeField
               // Show cubes from the start (partially below view) so they don't
               // spawn out of nowhere. They become more prominent during hopping.

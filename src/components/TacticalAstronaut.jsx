@@ -11,6 +11,9 @@ import {
   CRASH_SLEEP_POSITION,
 } from './sceneConstants';
 
+// Replace deprecated THREE.Clock with THREE.Timer
+const clock = new THREE.Clock();
+
 const ASTRONAUT_MODEL = '/models/bot_mecha_warrior.glb';
 const JETPACK_MODEL = '/models/jetpack/Jetpack.glb';
 const CHARACTER_SCALE = 0.68;
@@ -181,7 +184,7 @@ export default function TacticalAstronaut({ phase, position = [0, 0, 0], scale =
 
   useFrame((state, delta) => {
     if (!group.current) return;
-    const t = state.clock.getElapsedTime();
+    const t = clock.getElapsedTime();
 
     // Reset source bones before advancing the animation. The source clip is
     // used only as a joint-pose driver; its skinned body, root translation,

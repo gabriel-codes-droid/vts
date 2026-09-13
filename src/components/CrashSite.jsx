@@ -1,46 +1,18 @@
-import { useGLTF } from '@react-three/drei';
 import { useMemo } from 'react';
 import * as THREE from 'three';
 import { GROUND_CENTER, GROUND_RADIUS, DEBRIS_POSITION, DEBRIS_WIDTH } from './sceneConstants';
 
-const GROUND_MODEL = '/models/alien_planet_lv-426.glb';
-const DEBRIS_MODEL = '/models/halo_4multiplayercrimsonwreckage.glb';
-
 function Ground() {
-  const { scene } = useGLTF(GROUND_MODEL);
   const model = useMemo(() => {
-    const clone = scene.clone(true);
-    clone.updateMatrixWorld(true);
-
-    // This file has 4 meshes: one real terrain piece (~21 units across) and
-    // 3 giant flat backdrop/ground planes (1380 units across — measured
-    // directly, not guessed) left over from the source environment kit.
-    // Unlike the wreckage model, none of these have a helpful material name
-    // to filter by, so filter by measured size instead: anything over 100
-    // units in any dimension is one of the backdrop planes, not the actual
-    // terrain (100 has a wide margin either way — 5x the real piece, 13x
-    // smaller than the planes). Without this, normalizing the whole model
-    // together lets the giant planes dominate the bounding box and the real
-    // terrain gets scaled down to nothing, leaving just a huge flat surface
-    // filling the frame (exactly what showed up in-browser).
-    const SIZE_THRESHOLD = 100;
-    clone.traverse((object) => {
-      if (!object.isMesh) return;
-      const box = new THREE.Box3().setFromObject(object);
-      const size = box.getSize(new THREE.Vector3());
-      if (Math.max(size.x, size.y, size.z) > SIZE_THRESHOLD) {
-        object.visible = false;
-      }
+    // Temporary placeholder ground since GLB files are corrupted
+    const geometry = new THREE.SphereGeometry(GROUND_RADIUS, 64, 64);
+    const material = new THREE.MeshStandardMaterial({
+      color: '#3a3a3a',
+      roughness: 0.9,
+      metalness: 0.1,
     });
-
-    const box = new THREE.Box3().setFromObject(clone);
-    const size = box.getSize(new THREE.Vector3());
-    const center = box.getCenter(new THREE.Vector3());
-    const scaleFactor = GROUND_RADIUS / (Math.max(size.x, size.y, size.z) / 2 || 1);
-    clone.scale.setScalar(scaleFactor);
-    clone.position.copy(center).multiplyScalar(-scaleFactor);
-    return clone;
-  }, [scene]);
+    return new THREE.Mesh(geometry, material);
+  }, []);
 
   return (
     <group position={GROUND_CENTER}>
@@ -50,29 +22,16 @@ function Ground() {
 }
 
 function DistantDebris() {
-  const { scene } = useGLTF(DEBRIS_MODEL);
   const model = useMemo(() => {
-    const clone = scene.clone(true);
-    // Authored Z-up (Halo asset) — convert to this scene's Y-up.
-    clone.rotation.x = -Math.PI / 2;
-    clone.traverse((object) => {
-      if (!object.isMesh || !object.material) return;
-      const materials = Array.isArray(object.material) ? object.material : [object.material];
-      // Source scene includes an ocean backdrop that reads as a giant flat
-      // card at this distance — hide it, keep only the actual wreckage.
-      if (materials.some((material) => material?.name === 'wreckage_ocean')) {
-        object.visible = false;
-      }
+    // Temporary placeholder debris since GLB files are corrupted
+    const geometry = new THREE.BoxGeometry(DEBRIS_WIDTH, DEBRIS_WIDTH * 0.6, DEBRIS_WIDTH * 0.8);
+    const material = new THREE.MeshStandardMaterial({
+      color: '#4a4a4a',
+      roughness: 0.8,
+      metalness: 0.2,
     });
-    clone.updateMatrixWorld(true);
-    const bounds = new THREE.Box3().setFromObject(clone);
-    const size = bounds.getSize(new THREE.Vector3());
-    const center = bounds.getCenter(new THREE.Vector3());
-    const widthScale = size.x > 0 ? DEBRIS_WIDTH / size.x : 1;
-    clone.position.copy(center).multiplyScalar(-widthScale);
-    clone.scale.setScalar(widthScale);
-    return clone;
-  }, [scene]);
+    return new THREE.Mesh(geometry, material);
+  }, []);
 
   return (
     <group position={DEBRIS_POSITION}>
@@ -93,6 +52,3 @@ export default function CrashSite({ visible = true }) {
     </group>
   );
 }
-
-useGLTF.preload(GROUND_MODEL);
-useGLTF.preload(DEBRIS_MODEL);

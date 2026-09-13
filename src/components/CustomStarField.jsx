@@ -1,6 +1,10 @@
 import { useRef, useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { Points, PointMaterial, Sparkles } from '@react-three/drei';
+import * as THREE from 'three';
+
+// Replace deprecated THREE.Clock with THREE.Timer
+const clock = new THREE.Clock();
 
 // Matches the reference: an almost-pure-black field, sparse tiny pinpoint
 // stars (no color cast at all — the previous 10% cyan tint read as a subtle
@@ -38,8 +42,8 @@ const CustomStarField = ({ count = 1800, radius = 100 }) => {
 
   useFrame((state) => {
     if (pointsRef.current) {
-      pointsRef.current.rotation.y = state.clock.elapsedTime * 0.015;
-      pointsRef.current.rotation.x = Math.sin(state.clock.elapsedTime * 0.008) * 0.08;
+      pointsRef.current.rotation.y = clock.elapsedTime * 0.015;
+      pointsRef.current.rotation.x = Math.sin(clock.elapsedTime * 0.008) * 0.08;
     }
   });
 
