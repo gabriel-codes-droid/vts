@@ -11,9 +11,6 @@ import {
   CRASH_SLEEP_POSITION,
 } from './sceneConstants';
 
-// Replace deprecated THREE.Clock with THREE.Timer
-const clock = new THREE.Clock();
-
 const ASTRONAUT_MODEL = '/models/bot_mecha_warrior.glb';
 const JETPACK_MODEL = '/models/jetpack/Jetpack.glb';
 const CHARACTER_SCALE = 0.68;
@@ -184,11 +181,9 @@ export default function TacticalAstronaut({ phase, position = [0, 0, 0], scale =
 
   useFrame((state, delta) => {
     if (!group.current) return;
-    const t = clock.getElapsedTime();
+    const t = state.clock.getElapsedTime();
 
-    // Reset source bones before advancing the animation. The source clip is
-    // used only as a joint-pose driver; its skinned body, root translation,
-    // and proportions are never rendered or copied onto the astronaut.
+    // Reset source bones before advancing the animation.
     Object.entries(BONE_MAP).forEach(([sourceName]) => {
       if (sourceBones[sourceName] && sourceRestLocal[sourceName]) sourceBones[sourceName].quaternion.copy(sourceRestLocal[sourceName]);
     });
@@ -357,8 +352,6 @@ export default function TacticalAstronaut({ phase, position = [0, 0, 0], scale =
         group.current.position.y += (MOON_SEAT_POSITION[1] - seatedBounds.min.y) / worldScaleY;
         group.current.updateMatrixWorld(true);
       }
-      // Keep the mech continuously facing the planets during seated phase
-      group.current.rotation.set(0, angleToPlanets, 0);
       hopPositionRef?.current.copy(group.current.position);
       return;
     }

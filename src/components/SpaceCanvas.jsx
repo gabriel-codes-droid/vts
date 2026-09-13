@@ -16,9 +16,6 @@ import {
   MOON_SEAT_POSITION,
 } from './sceneConstants';
 
-// Replace deprecated THREE.Clock with THREE.Timer
-const clock = new THREE.Clock();
-
 gsap.registerPlugin(ScrollTrigger);
 
 // Scroll-progress bands mapped to each phase of the journey.
