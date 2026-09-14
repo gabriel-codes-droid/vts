@@ -245,11 +245,29 @@ const SpaceCanvas = () => {
           </Suspense>
 
           <Suspense fallback={null}>
-            <MoonScene
-              moonPosition={MOON_POSITION}
-              moonRadius={MOON_RADIUS}
-              planetsVisible={true}
-            />
+            {/* Previously had zero visibility gating at all — rendered
+                constantly regardless of phase, unlike CrashSite and the
+                cube field which are both properly gated. That's why the
+                moon's light-colored material was bleeding into the opening
+                sleeping-phase shot as an unexplained white dome. Now only
+                appears once he's actually approaching/arrived at it. */}
+            <group
+              visible={
+                astronautPhase === 'flying'
+                || astronautPhase === 'landing'
+                || astronautPhase === 'seated'
+              }
+            >
+              <MoonScene
+                moonPosition={MOON_POSITION}
+                moonRadius={MOON_RADIUS}
+                // Was hardcoded to `true` — planets (and their HTML labels)
+                // were rendering regardless of scroll position, which is why
+                // they showed up during the sleeping phase. Gated back to the
+                // phases where they're actually meant to appear.
+                planetsVisible={astronautPhase === 'landing' || astronautPhase === 'seated'}
+              />
+            </group>
           </Suspense>
 
           <Suspense fallback={null}>

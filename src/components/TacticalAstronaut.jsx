@@ -109,6 +109,48 @@ export default function TacticalAstronaut({ phase, position = [0, 0, 0], scale =
     }
     return result;
   }, [astronaut]);
+
+  // One-time diagnostic: confirms whether the jetpack attachment bone was
+  // actually found. If BONE_MAP's hand-typed 'spine_05_x_08' has even a
+  // one-character mismatch against this specific file's real bone name, the
+  // jetpack silently never attaches to anything — this prints which case
+  // it is, directly, instead of requiring another round of raw data.
+  useEffect(() => {
+    if (typeof window === 'undefined' || window.__jetpackSpineLogged) return;
+    window.__jetpackSpineLogged = true;
+    const found = astronaut.getObjectByName('spine_05_x_08');
+    console.log('[TacticalAstronaut] jetpack attach bone "spine_05_x_08" found:', !!found);
+    if (!found) {
+      console.log('[TacticalAstronaut] bone names actually present:', Object.keys(targetBones));
+    }
+  }, [astronaut, targetBones]);
+
+  // One-time diagnostic: determines which way this model actually faces in
+  // its bind pose, directly, instead of dumping a bounding box the user has
+  // to interpret. Compares the average toe-bone Z position against the hip
+  // bone's Z position — a standing character's feet point in its own
+  // forward direction, so whichever side of the hips the toes sit on IS the
+  // forward axis, regardless of how the mesh names things internally.
+  useEffect(() => {
+    if (typeof window === 'undefined' || window.__astronautFacingLogged) return;
+    const hips = targetBones['root_x_03'];
+    const leftToe = targetBones['toes_01_l_060'];
+    const rightToe = targetBones['toes_01_r_068'];
+    if (!hips || !leftToe || !rightToe) return;
+    window.__astronautFacingLogged = true;
+    astronaut.updateMatrixWorld(true);
+    const hipsPos = new THREE.Vector3();
+    const leftToePos = new THREE.Vector3();
+    const rightToePos = new THREE.Vector3();
+    hips.getWorldPosition(hipsPos);
+    leftToe.getWorldPosition(leftToePos);
+    rightToe.getWorldPosition(rightToePos);
+    const toeZ = (leftToePos.z + rightToePos.z) / 2;
+    const facing = toeZ > hipsPos.z ? '+Z' : '-Z';
+    console.log(
+      `[TacticalAstronaut] bind-pose facing direction: ${facing} (hips z=${hipsPos.z.toFixed(3)}, toes avg z=${toeZ.toFixed(3)})`
+    );
+  }, [astronaut, targetBones]);
   const sourceRestLocal = useMemo(() => Object.fromEntries(
     Object.entries(sourceBones).map(([name, bone]) => [name, bone.quaternion.clone()]),
   ), [sourceBones]);
@@ -154,8 +196,15 @@ export default function TacticalAstronaut({ phase, position = [0, 0, 0], scale =
   useEffect(() => {
     const action = actions?.[phase];
     if (!action) return;
-    Object.values(actions).forEach((item) => item.stop());
-    const oneShot = phase === 'waking' || phase === 'landing' || phase === 'seated';
+    // Previously called .stop() on every action here, which instantly halts
+    // and resets ALL of them — including whichever one the PREVIOUS effect's
+    // cleanup had just started fading out via fadeOut(0.12) a moment earlier.
+    // That cancelled the fade mid-flight and caused a hard pose-snap at
+    // every single phase change (7 of them across the whole journey) — the
+    // reported "blink." The cleanup below already handles fading the old
+    // action out smoothly; AnimationMixer supports multiple concurrently-
+    // weighted actions by design, so nothing needs to be force-stopped here.
+    const oneShot = phase === 'waking' || phase === 'landing';
     action.reset()
       .setLoop(oneShot ? THREE.LoopOnce : THREE.LoopRepeat, oneShot ? 1 : Infinity)
       .fadeIn(0.28)
@@ -168,7 +217,6 @@ export default function TacticalAstronaut({ phase, position = [0, 0, 0], scale =
 
   const hopDirRef = useRef(new THREE.Vector3());
   const hopPitchRef = useRef(0);
-  const seatedBounds = useMemo(() => new THREE.Box3(), []);
   const seatedWorldScale = useMemo(() => new THREE.Vector3(), []);
   const seatedHipBend = useMemo(
     () => new THREE.Quaternion().setFromEuler(new THREE.Euler(-0.62, 0, 0)),
@@ -326,30 +374,30 @@ export default function TacticalAstronaut({ phase, position = [0, 0, 0], scale =
       // position must be included in the world-space bounds.
       group.current.updateMatrixWorld(true);
       astronaut.updateMatrixWorld(true);
-      seatedBounds.makeEmpty();
-      astronaut.traverse((object) => {
-        // The jetpack is hidden while seated and must not define the contact
-        // point if its mesh extends below the bot's boots.
-        if (!object.isMesh || !object.geometry || jetpackClone.getObjectById(object.id)) return;
-        seatedBounds.expandByObject(object);
-      });
-      if (!seatedBounds.isEmpty()) {
-        // Bounds are world-space values. `position.y` is interpreted in the
-        // PARENT's coordinate space, not this group's own — so the correct
-        // divisor is the parent's world scale, not this group's own world
-        // scale. This group's own world scale already includes its own
-        // `scale * CHARACTER_SCALE` factor (≈0.68) stacked on top of the
-        // parent's, which was making every correction ~47% too large
-        // (dividing by a smaller number than it should), causing a
-        // consistent overshoot upward past the actual target surface —
-        // exactly the "sits above the surface" symptom.
+      // Measure ground contact using actual BONE positions, not mesh
+      // geometry. Box3.expandByObject() on a skinned mesh is a known Three.js
+      // limitation: it measures the bind-pose geometry transformed by the
+      // mesh's own matrix, NOT the GPU-skinned/deformed result — it never
+      // sees the forced seated hip/knee bend at all. So even with correct
+      // scale math, the "lowest point" being measured was always the
+      // standing-pose foot height, not where the feet actually end up once
+      // bent into a seated position. Bones don't have this problem: their
+      // matrixWorld is always correctly updated regardless of mesh skinning.
+      const leftToe = targetBones['toes_01_l_060'];
+      const rightToe = targetBones['toes_01_r_068'];
+      if (leftToe && rightToe) {
+        const leftToePos = new THREE.Vector3();
+        const rightToePos = new THREE.Vector3();
+        leftToe.getWorldPosition(leftToePos);
+        rightToe.getWorldPosition(rightToePos);
+        const lowestY = Math.min(leftToePos.y, rightToePos.y);
         if (group.current.parent) {
           group.current.parent.getWorldScale(seatedWorldScale);
         } else {
           seatedWorldScale.set(1, 1, 1);
         }
         const worldScaleY = Math.max(Math.abs(seatedWorldScale.y), 0.0001);
-        group.current.position.y += (MOON_SEAT_POSITION[1] - seatedBounds.min.y) / worldScaleY;
+        group.current.position.y += (MOON_SEAT_POSITION[1] - lowestY) / worldScaleY;
         group.current.updateMatrixWorld(true);
       }
       hopPositionRef?.current.copy(group.current.position);
@@ -386,20 +434,19 @@ export default function TacticalAstronaut({ phase, position = [0, 0, 0], scale =
     group.current.rotation.y = 0;
   });
 
-  const spine = astronaut.getObjectByName('spine_05_x_08');
-  if (spine && jetpackClone.parent !== spine) {
-    spine.add(jetpackClone);
-    jetpackClone.position.set(0, 0.08, -0.42);
-    jetpackClone.rotation.set(0, Math.PI, 0);
-    jetpackClone.scale.setScalar(0.95);
-  }
-  // Visible only for the actual powered-flight portion: launching and
-  // flying. Disappears the moment landing starts (previously stayed
-  // visible through landing too) — gone well before he's seated, and never
-  // shown during idle/hopping/seated.
-  // The jetpack is a flight-only attachment: it stays on the spine through
-  // launch and slow flight, then disappears immediately when landing begins.
-  jetpackClone.visible = phase === 'launching' || phase === 'flying';
+  useEffect(() => {
+    const spine = astronaut.getObjectByName('spine_05_x_08');
+    if (spine && jetpackClone.parent !== spine) {
+      spine.add(jetpackClone);
+      jetpackClone.position.set(0, 0.08, -0.42);
+      jetpackClone.rotation.set(0, Math.PI, 0);
+      jetpackClone.scale.setScalar(0.95);
+    }
+  }, [astronaut, jetpackClone]);
+
+  useEffect(() => {
+    jetpackClone.visible = phase === 'launching' || phase === 'flying';
+  }, [jetpackClone, phase]);
 
   return (
     <group ref={group} position={position} scale={scale * CHARACTER_SCALE}>
