@@ -8,7 +8,6 @@ import {
   PLANET_ROW_Z,
   LAUNCH_POINT,
   FLIGHT_APEX,
-  CRASH_SLEEP_POSITION,
 } from './sceneConstants';
 
 const ASTRONAUT_MODEL = '/models/bot_mecha_warrior.glb';
@@ -61,9 +60,12 @@ export default function TacticalAstronaut({ phase, position = [0, 0, 0], scale =
       const tunedMaterials = materials.map((material) => {
         const tuned = material.clone();
         const isVisor = tuned.name === 'HEAD_1032';
-        tuned.roughness = isVisor ? 0.38 : 0.85;
-        tuned.metalness = isVisor ? 0.1 : 0.4;
-        tuned.envMapIntensity = isVisor ? 0.35 : 0.2;
+        tuned.roughness = isVisor ? 0.38 : 0.95;
+        tuned.metalness = isVisor ? 0.1 : 0.2;
+        tuned.envMapIntensity = isVisor ? 0.35 : 0.1;
+        if (tuned.emissive) {
+          tuned.emissiveIntensity = 0;
+        }
         return tuned;
       });
       object.material = Array.isArray(object.material) ? tunedMaterials : tunedMaterials[0];
@@ -168,6 +170,8 @@ export default function TacticalAstronaut({ phase, position = [0, 0, 0], scale =
     desiredTargetWorld: new THREE.Quaternion(),
     parentWorld: new THREE.Quaternion(),
     inverseParentWorld: new THREE.Quaternion(),
+    hipTwist: new THREE.Quaternion(),
+    hipTwistInverse: new THREE.Quaternion(),
   }), []);
   const targetPoseWorld = useRef({});
   const sourceMixer = useMemo(() => new THREE.AnimationMixer(mutantJumpAsset), [mutantJumpAsset]);
@@ -215,6 +219,22 @@ export default function TacticalAstronaut({ phase, position = [0, 0, 0], scale =
     () => new THREE.Quaternion().setFromEuler(new THREE.Euler(0.92, 0, 0)),
     [],
   );
+  // The forced leg bend above exists because the retargeted sitting clip
+  // doesn't read correctly on this mecha's proportions/twist-bone setup —
+  // the same mismatch almost certainly affects the arms too, and nothing
+  // was correcting them. Pulls the upper arms forward/down and bends the
+  // elbows toward a relaxed "resting near the knees" seated pose instead of
+  // trusting the raw retargeted arm rotation. Values are a reasoned first
+  // pass, not measured against this model's actual bind pose — needs visual
+  // confirmation like the leg bend did.
+  const seatedShoulderBend = useMemo(
+    () => new THREE.Quaternion().setFromEuler(new THREE.Euler(0, 0, -0.55)),
+    [],
+  );
+  const seatedElbowBend = useMemo(
+    () => new THREE.Quaternion().setFromEuler(new THREE.Euler(0, 0, 0.95)),
+    [],
+  );
 
   useFrame((state, delta) => {
     if (!group.current) return;
@@ -257,6 +277,25 @@ export default function TacticalAstronaut({ phase, position = [0, 0, 0], scale =
         .copy(poseScratch.inverseParentWorld)
         .multiply(poseScratch.desiredTargetWorld)
         .normalize();
+      // The Hips bone is retargeted like every other bone above, which means
+      // whatever yaw/turning is authored into the SOURCE FBX clip's hip
+      // animation (jump/flying/landing/sitting each likely have some
+      // natural hip sway baked in) gets applied on top of — compounds with
+      // — the group-level rotation.y set procedurally further down for
+      // facing the moon/planets. That fights against the explicit facing
+      // direction regardless of how correct that value is. Strip just the
+      // twist (yaw, rotation around the vertical axis) from the hip bone's
+      // retargeted rotation via swing-twist decomposition, keeping whatever
+      // legitimate lean/tilt (pitch/roll) the source animation contributes.
+      // The group's own rotation.y remains the only source of facing
+      // direction.
+      if (targetName === 'root_x_03') {
+        const q = targetBone.quaternion;
+        const dot = q.y; // projection onto the (0,1,0) twist axis
+        poseScratch.hipTwist.set(0, dot, 0, q.w).normalize();
+        poseScratch.hipTwistInverse.copy(poseScratch.hipTwist).invert();
+        q.multiply(poseScratch.hipTwistInverse).normalize();
+      }
       nextTargetPoseWorld[targetName] = poseScratch.desiredTargetWorld.clone();
     });
 
@@ -268,22 +307,63 @@ export default function TacticalAstronaut({ phase, position = [0, 0, 0], scale =
       ['leg_stretch_l_058', 'leg_stretch_r_066'].forEach((name) => {
         if (targetBones[name]) targetBones[name].quaternion.multiply(seatedKneeBend);
       });
+      // Same correction extended to the arms — see comment at
+      // seatedShoulderBend's declaration above.
+      if (targetBones['arm_stretch_l_013']) targetBones['arm_stretch_l_013'].quaternion.multiply(seatedShoulderBend);
+      if (targetBones['arm_stretch_r_036']) targetBones['arm_stretch_r_036'].quaternion.multiply(seatedShoulderBend.clone().invert());
+      if (targetBones['forearm_stretch_l_016']) targetBones['forearm_stretch_l_016'].quaternion.multiply(seatedElbowBend);
+      if (targetBones['forearm_stretch_r_038']) targetBones['forearm_stretch_r_038'].quaternion.multiply(seatedElbowBend);
+    }
+
+    // Hopping / launching phase leg twist correction. The source FBX legs and
+    // the bot_mecha legs have different rest-pose bone orientations, so the
+    // raw retargeted pose can twist the legs around their own long axis. Strip
+    // that twist by decomposing each leg bone's quaternion into swing (around
+    // world up) + twist (around the bone's local Y/long axis) and keeping only
+    // the swing component so the legs stay clean mid-hop.
+    const LEG_BONES = ['thigh_stretch_l_057', 'thigh_stretch_r_065', 'leg_stretch_l_058', 'leg_stretch_r_066', 'foot_l_059', 'foot_r_067'];
+    if (phase === 'hopping' || phase === 'launching') {
+      const upVec = new THREE.Vector3(0, 1, 0);
+      const qA = new THREE.Quaternion();
+      const qTwist = new THREE.Quaternion();
+      const qSwing = new THREE.Quaternion();
+      LEG_BONES.forEach((name) => {
+        const bone = targetBones[name];
+        if (!bone) return;
+        const localUp = new THREE.Vector3(0, 1, 0).applyQuaternion(targetRestWorld[name]);
+        if (localUp.lengthSq() < 1e-6) return;
+        localUp.normalize();
+        // qA = rotation from world up to the bone's local up axis.
+        qA.setFromUnitVectors(upVec, localUp);
+        // Decompose bone's quaternion q into twist (around localUp) + swing.
+        // swing = q * twist^-1  →  twist = swing^-1 * q
+        qSwing.copy(bone.quaternion).multiply(qA.clone().invert());
+        qTwist.copy(qA).multiply(qSwing.clone().invert()).normalize();
+        // Rebuild from only the swing part: result = qA * qSwing (twist-free).
+        bone.quaternion.copy(qA).multiply(qSwing).normalize();
+      });
     }
 
     if (phase === 'sleeping' || phase === 'waking') {
       hopStart.current = null;
-      group.current.position.set(...CRASH_SLEEP_POSITION);
+      // Was CRASH_SLEEP_POSITION, a coordinate that only made sense when the
+      // crash-site ground existed. Now that the ground is gone and the cube
+      // field is visible from the start instead, he needs to actually be ON
+      // the first hop platform — not floating near an orphaned coordinate
+      // with nothing rendered anywhere close to it.
+      const sleepSpot = hopPoints[0] || [0, 0, 0];
+      group.current.position.set(sleepSpot[0], sleepSpot[1] - FOOT_OFFSET, sleepSpot[2]);
       group.current.rotation.set(0, 0, 0);
       hopPositionRef?.current.copy(group.current.position);
       return;
     }
     if (phase === 'idle') {
       hopStart.current = null; hopIndex.current = 0;
-      const p = hopPoints[0] || CRASH_SLEEP_POSITION;
-      group.current.rotation.x = THREE.MathUtils.damp(group.current.rotation.x, -Math.PI / 2, 6, delta);
+      const p = hopPoints[0] || [0, 0, 0];
+      group.current.rotation.x = THREE.MathUtils.damp(group.current.rotation.x, 0, 6, delta);
       group.current.rotation.y = hopDirRef.current.z;
       group.current.rotation.z = 0;
-      group.current.position.set(p[0], p[1] + 0.26, p[2]);
+      group.current.position.set(p[0], p[1] - FOOT_OFFSET, p[2]);
       hopPositionRef?.current.copy(group.current.position);
       return;
     }
@@ -308,7 +388,7 @@ export default function TacticalAstronaut({ phase, position = [0, 0, 0], scale =
 
       group.current.position.set(
         THREE.MathUtils.lerp(from[0], to[0], progress),
-        THREE.MathUtils.lerp(from[1], to[1], progress) - FOOT_OFFSET + Math.sin(progress * Math.PI) * 0.75,
+        THREE.MathUtils.lerp(from[1], to[1], progress) - FOOT_OFFSET + Math.sin(progress * Math.PI) * 0.9,
         THREE.MathUtils.lerp(from[2], to[2], progress),
       );
       hopPositionRef?.current.copy(group.current.position);
@@ -321,6 +401,9 @@ export default function TacticalAstronaut({ phase, position = [0, 0, 0], scale =
         MOON_SEAT_POSITION[1] - FOOT_OFFSET,
         MOON_SEAT_POSITION[2],
       );
+      // Same angleToPlanets formula the flight block above lerps toward, so
+      // by the time 'seated' takes over, rotation.y is already sitting at
+      // this exact value — no snap at the hand-off.
       const planetDx = 0 - MOON_SEAT_POSITION[0];
       const planetDz = PLANET_ROW_Z - MOON_SEAT_POSITION[2];
       const angleToPlanets = Math.atan2(planetDx, planetDz);
@@ -375,24 +458,58 @@ export default function TacticalAstronaut({ phase, position = [0, 0, 0], scale =
       group.current.position.lerpVectors(apexVec, seatVec, (eased - 0.5) / 0.5);
     }
 
-    const diveAngle = Math.sin(flightT * Math.PI) * (Math.PI / 2);
+    const diveAngle = Math.sin(flightT * Math.PI) * (Math.PI / 3.2);
     group.current.rotation.x = diveAngle;
-    group.current.rotation.y = 0;
+    // Previously hard-set to 0 here, which snapped from whatever direction
+    // he was last facing mid-hop (hopDirRef.current.z), and 'seated' below
+    // separately hard-sets yaw to angleToPlanets (~180° with current scene
+    // constants) — two snaps bracketing the whole flight. hopDirRef doesn't
+    // change once hopping ends, so it still holds his exact last hop-facing
+    // angle; interpolating from that to the same angleToPlanets 'seated'
+    // uses removes both snaps at once, continuous from the last hop through
+    // to sitting down.
+    const seatedPlanetDx = 0 - MOON_SEAT_POSITION[0];
+    const seatedPlanetDz = PLANET_ROW_Z - MOON_SEAT_POSITION[2];
+    const angleToPlanets = Math.atan2(seatedPlanetDx, seatedPlanetDz);
+    group.current.rotation.y = THREE.MathUtils.lerp(hopDirRef.current.z, angleToPlanets, eased);
   });
 
   useEffect(() => {
     const spine = astronaut.getObjectByName('spine_05_x_08');
     if (spine && jetpackClone.parent !== spine) {
       spine.add(jetpackClone);
-      jetpackClone.position.set(0, 0.08, -0.42);
-      jetpackClone.rotation.set(0, Math.PI, 0);
       jetpackClone.scale.setScalar(0.95);
+
+      // Figure out which way the mech faces in bind pose so the jetpack
+      // goes on the BACK (opposite the facing direction) instead of hardcoded
+      // to one side and ending up on the front if the model faces the other way.
+      const hips = targetBones['root_x_03'];
+      const leftToe = targetBones['toes_01_l_060'];
+      const rightToe = targetBones['toes_01_r_068'];
+      if (hips && leftToe && rightToe) {
+        astronaut.updateMatrixWorld(true);
+        const hipsPos = new THREE.Vector3();
+        const leftToePos = new THREE.Vector3();
+        const rightToePos = new THREE.Vector3();
+        hips.getWorldPosition(hipsPos);
+        leftToe.getWorldPosition(leftToePos);
+        rightToe.getWorldPosition(rightToePos);
+        const toeZ = (leftToePos.z + rightToePos.z) / 2;
+        const facingPositiveZ = toeZ > hipsPos.z;
+        // Back is the opposite of the facing direction.
+        const jetpackZ = facingPositiveZ ? -0.45 : 0.45;
+        jetpackClone.position.set(0, 0.08, jetpackZ);
+      } else {
+        jetpackClone.position.set(0, 0.08, -0.45);
+      }
+      jetpackClone.rotation.set(0, Math.PI, 0);
     }
-  }, [astronaut, jetpackClone]);
+  }, [astronaut, jetpackClone, targetBones]);
 
   useEffect(() => {
-    jetpackClone.visible = phase === 'launching' || phase === 'flying';
-  }, [jetpackClone, phase]);
+    const isLastHop = hopPoints.length >= 2 && hopIndex.current >= hopPoints.length - 2;
+    jetpackClone.visible = isLastHop || phase === 'launching' || phase === 'flying';
+  }, [jetpackClone, phase, hopPoints]);
 
   return (
     <group ref={group} position={position} scale={scale * CHARACTER_SCALE}>

@@ -15,10 +15,10 @@ export const HOP_CUBE_SIZE = 0.8;
 export const HOP_WAYPOINTS = [
   // The first platform is the large cube to the mech's left in the hero
   // framing; the bot is planted here after waking before continuing across
-  // the remaining platforms.
-  [-1.0, -0.2, -0.5],
-  [0.8, 0.35, -1.2],
-  [1.2, -1.0, -1.5],
+  // the remaining platforms. Y adjusted so feet rest on cube surface.
+  [-1.0, 0.3, -0.5],
+  [0.8, 0.85, -1.2],
+  [1.2, -0.5, -1.5],
 ];
 export const HOP_CUBES = HOP_WAYPOINTS.map((point) => [
   point[0],
