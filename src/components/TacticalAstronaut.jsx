@@ -8,6 +8,7 @@ import {
   PLANET_ROW_Z,
   LAUNCH_POINT,
   FLIGHT_APEX,
+  MECH_SLEEP_POSITION,
 } from './sceneConstants';
 
 const ASTRONAUT_MODEL = '/models/bot_mecha_warrior.glb';
@@ -297,14 +298,25 @@ export default function TacticalAstronaut({ phase, position = [0, 0, 0], scale =
       // legitimate lean/tilt (pitch/roll) the source animation contributes.
       // The group's own rotation.y remains the only source of facing
       // direction.
-      if (targetName === 'root_x_03') {
+      // Skip hip twist correction during hopping to preserve jump.fbx's natural movement
+      if (targetName === 'root_x_03' && phase !== 'hopping' && phase !== 'launching') {
         const q = targetBone.quaternion;
         const dot = q.y; // projection onto the (0,1,0) twist axis
         poseScratch.hipTwist.set(0, dot, 0, q.w).normalize();
         poseScratch.hipTwistInverse.copy(poseScratch.hipTwist).invert();
         q.multiply(poseScratch.hipTwistInverse).normalize();
+        // BUG FIXED: the cached world-space value used by children (the legs
+        // are children of the hips) must reflect this twist-stripped local
+        // rotation, not the original pre-strip desiredTargetWorld. Without
+        // this, the hip bone visually has no twist but the legs still
+        // compute their own rotation as if it did — a mismatch between the
+        // hip's actual orientation and what the legs think their parent
+        // looks like, which shows up as visibly wrong/twisted leg angles in
+        // every phase this correction runs (seated, idle, flying, landing).
+        nextTargetPoseWorld[targetName] = poseScratch.parentWorld.clone().multiply(q);
+      } else {
+        nextTargetPoseWorld[targetName] = poseScratch.desiredTargetWorld.clone();
       }
-      nextTargetPoseWorld[targetName] = poseScratch.desiredTargetWorld.clone();
     });
 
     // Some mecha clips retain the source rig's bind pose when retargeted.
@@ -332,44 +344,13 @@ export default function TacticalAstronaut({ phase, position = [0, 0, 0], scale =
       if (targetBones['forearm_stretch_r_038']) targetBones['forearm_stretch_r_038'].quaternion.multiply(seatedElbowBend);
     }
 
-    // Hopping / launching phase leg twist correction. The source FBX legs and
-    // the bot_mecha legs have different rest-pose bone orientations, so the
-    // raw retargeted pose can twist the legs around their own long axis. Strip
-    // that twist by decomposing each leg bone's quaternion into swing (around
-    // world up) + twist (around the bone's local Y/long axis) and keeping only
-    // the swing component so the legs stay clean mid-hop.
-    const LEG_BONES = ['thigh_stretch_l_057', 'thigh_stretch_r_065', 'leg_stretch_l_058', 'leg_stretch_r_066', 'foot_l_059', 'foot_r_067'];
-    if (phase === 'hopping' || phase === 'launching') {
-      const upVec = new THREE.Vector3(0, 1, 0);
-      const qA = new THREE.Quaternion();
-      const qTwist = new THREE.Quaternion();
-      const qSwing = new THREE.Quaternion();
-      LEG_BONES.forEach((name) => {
-        const bone = targetBones[name];
-        if (!bone) return;
-        const localUp = new THREE.Vector3(0, 1, 0).applyQuaternion(targetRestWorld[name]);
-        if (localUp.lengthSq() < 1e-6) return;
-        localUp.normalize();
-        // qA = rotation from world up to the bone's local up axis.
-        qA.setFromUnitVectors(upVec, localUp);
-        // Decompose bone's quaternion q into twist (around localUp) + swing.
-        // swing = q * twist^-1  →  twist = swing^-1 * q
-        qSwing.copy(bone.quaternion).multiply(qA.clone().invert());
-        qTwist.copy(qA).multiply(qSwing.clone().invert()).normalize();
-        // Rebuild from only the swing part: result = qA * qSwing (twist-free).
-        bone.quaternion.copy(qA).multiply(qSwing).normalize();
-      });
-    }
-
-
     if (phase === 'sleeping' || phase === 'waking') {
       hopStart.current = null;
-      // Was CRASH_SLEEP_POSITION, a coordinate that only made sense when the
-      // crash-site ground existed. Now that the ground is gone and the cube
-      // field is visible from the start instead, he needs to actually be ON
-      // the first hop platform — not floating near an orphaned coordinate
-      // with nothing rendered anywhere close to it.
-      const sleepSpot = hopPoints[0] || [0, 0, 0];
+      // Now sleeps inside the ISS module (see SleepModule.jsx/sceneConstants)
+      // instead of on the first hop platform — they're close to each other
+      // by design, but this is a distinct, deliberately-placed spot inside
+      // the module's actual measured center, not the cube-platform position.
+      const sleepSpot = MECH_SLEEP_POSITION;
       group.current.position.set(sleepSpot[0], sleepSpot[1] - FOOT_OFFSET, sleepSpot[2]);
       group.current.rotation.set(0, 0, 0);
       hopPositionRef?.current.copy(group.current.position);
