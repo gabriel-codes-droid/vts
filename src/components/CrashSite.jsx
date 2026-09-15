@@ -53,6 +53,22 @@ function Ground() {
     const scaleFactor = GROUND_RADIUS / (Math.max(size.x, size.y, size.z) / 2 || 1);
     clone.scale.setScalar(scaleFactor);
     clone.position.copy(center).multiplyScalar(-scaleFactor);
+
+    // Reduce material brightness to prevent white glow during sleeping phase
+    clone.traverse((object) => {
+      if (!object.isMesh || !object.material) return;
+      const materials = Array.isArray(object.material) ? object.material : [object.material];
+      materials.forEach((material) => {
+        if (material) {
+          material.roughness = Math.max(material.roughness || 0.5, 0.8);
+          material.metalness = Math.min(material.metalness || 0.5, 0.3);
+          if (material.emissive) {
+            material.emissiveIntensity = Math.min(material.emissiveIntensity || 1, 0.2);
+          }
+        }
+      });
+    });
+
     return clone;
   }, [scene]);
 
@@ -103,7 +119,8 @@ export default function CrashSite({ visible = true }) {
   return (
     <group visible={visible}>
       <Ground />
-      <DistantDebris />
+      {/* Hide debris during sleeping to prevent white glow from bloom */}
+      <DistantDebris visible={false} />
     </group>
   );
 }

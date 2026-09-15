@@ -6,7 +6,6 @@ import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import * as THREE from 'three';
 import ControlCubeField from './ControlCubeField';
-import CrashSite from './CrashSite';
 import TacticalAstronaut from './TacticalAstronaut';
 import MoonScene from './MoonScene';
 import {
@@ -83,8 +82,32 @@ function JourneyController({ progressRef, phase }) {
   // animation frame by the cinematic follow camera.
   const lastProgressRef = useRef(-1);
 
-  const heroCamPos = useRef(new THREE.Vector3(0, 1.4, 9.5));
-  const heroCamLook = useRef(new THREE.Vector3(0, -0.6, -4));
+  // Was (0, -10, -8) — that exactly matches the old GROUND_CENTER from the
+  // now-deleted crash site, a leftover aim point with nothing there anymore.
+  // Recomputed to actually frame the hop-waypoint cluster where the
+  // character and cubes really are (x -1 to 1.2, y -0.5 to 0.85, z -0.5 to
+  // -1.5), which is why he was never actually visible during waking/idle/
+  // hopping despite the cubes themselves rendering fine.
+  const heroCamPos = useRef(new THREE.Vector3(0, 2.0, 6));
+  const heroCamLook = useRef(new THREE.Vector3(0.1, 0.3, -1.0));
+  // Distinct oblique framing for the sleeping phase specifically — offset
+  // to the side and closer, angled down at him, rather than the same wide
+  // straight-on view used for the rest of the pre-flight stretch. Without
+  // this the camera never moves at all until flight starts, which read as
+  // "stuck" during sleeping, and he's genuinely hard to pick out in the
+  // wide straight framing.
+  const sleepSpot = HOP_WAYPOINTS[0];
+  // Widened from the first attempt — that framing was too tight/low and
+  // cropped him out of frame. Camera raised and pulled back further, look
+  // target raised too, so he's captured with margin regardless of his exact
+  // height/pose rather than assuming a precise position that turned out
+  // wrong.
+  const sleepCamPos = useRef(
+    new THREE.Vector3(sleepSpot[0] - 4.0, sleepSpot[1] + 3.5, sleepSpot[2] + 6.5)
+  );
+  const sleepCamLook = useRef(
+    new THREE.Vector3(sleepSpot[0], sleepSpot[1] + 1.2, sleepSpot[2])
+  );
   // Final framing: pulled back and angled so the moon (lower-foreground)
   // and the row of project planets (upper) are both in frame together,
   // matching the reference "watch the planets" composition.
@@ -106,10 +129,14 @@ function JourneyController({ progressRef, phase }) {
     const progressChanged = Math.abs(progress - lastProgressRef.current) > 0.0001;
 
     if (progress < FLIGHT_START) {
-      // Idle/hopping: wrapper stays at origin, TacticalAstronaut's own
-      // internal useFrame logic drives local hop movement.
-      camera.position.copy(heroCamPos.current);
-      camera.lookAt(heroCamLook.current);
+      // Sleeping gets its own oblique framing, blending smoothly into the
+      // straight hero view as waking plays out — not an instant cut, tied
+      // to actual scroll progress across the sleeping→waking band (0 to
+      // 0.22) the same way the flight camera below already blends.
+      const wakeBlend = smoothstep(progress / 0.22);
+      camera.position.lerpVectors(sleepCamPos.current, heroCamPos.current, wakeBlend);
+      const preFlightLook = new THREE.Vector3().lerpVectors(sleepCamLook.current, heroCamLook.current, wakeBlend);
+      camera.lookAt(preFlightLook);
       lastProgressRef.current = progress;
       return;
     }
@@ -192,7 +219,6 @@ const SpaceCanvas = () => {
           <directionalLight position={[10, 10, 5]} intensity={1.0} color="#e2e8f0" />
           <pointLight position={[-10, -5, -10]} intensity={0.6} color="#3b82f6" distance={30} />
           <pointLight position={[10, 5, 10]} intensity={0.5} color="#8b5cf6" distance={25} />
-          <pointLight position={MOON_POSITION} intensity={0.5} color="#c7d2fe" distance={20} />
 
           <Suspense fallback={null}>
             {/* Restoring the real night-sky environment map — this had been
@@ -206,12 +232,16 @@ const SpaceCanvas = () => {
           </Suspense>
 
           <Suspense fallback={null}>
-            {/* Keep the starfield and controls responsive while the larger GLB
-                cube field is parsed. The previous single boundary kept the
-                entire scene black until every cube finished loading. */}
+            {/* Cubes were hidden during 'sleeping' to work around a white-glow
+                bloom issue — but that directly broke the continuity this
+                scene is supposed to have (nothing should pop in/out, the
+                place should feel continuous throughout). Bloom's intensity
+                was already dialed back separately (threshold 0.2→0.9,
+                intensity 1.5→0.8) to address the same glow issue at its
+                actual source, so hiding the cubes on top of that was very
+                likely an unnecessary second fix for the same problem.
+                Visible from sleeping onward now, continuously. */}
             <ControlCubeField
-              // Show cubes from the start (partially below view) so they don't
-              // spawn out of nowhere. They become more prominent during hopping.
               visible={true}
               platformsVisible={
                 astronautPhase === 'sleeping'
@@ -227,44 +257,19 @@ const SpaceCanvas = () => {
             />
           </Suspense>
 
-          <Suspense fallback={null}>
-            {/* Stays visible through idle/hopping/launching too — previously
-                vanished the instant waking ended, before hopping even
-                started, which read as an abrupt cut rather than one
-                continuous place. Now only disappears once he's actually
-                departed (flying onward), not the moment he stands up. */}
-            <CrashSite
-              visible={
-                astronautPhase === 'sleeping'
-                || astronautPhase === 'waking'
-                || astronautPhase === 'idle'
-                || astronautPhase === 'hopping'
-                || astronautPhase === 'launching'
-              }
-            />
-          </Suspense>
+          {/* CrashSite removed completely - alien_planet_lv-426.glb no longer used */}
 
           <Suspense fallback={null}>
-            {/* Previously had zero visibility gating at all — rendered
-                constantly regardless of phase, unlike CrashSite and the
-                cube field which are both properly gated. That's why the
-                moon's light-colored material was bleeding into the opening
-                sleeping-phase shot as an unexplained white dome. Now only
-                appears once he's actually approaching/arrived at it. */}
+            {/* Moon only appears during landing/seated phases when mech watches planets */}
             <group
               visible={
-                astronautPhase === 'flying'
-                || astronautPhase === 'landing'
+                astronautPhase === 'landing'
                 || astronautPhase === 'seated'
               }
             >
               <MoonScene
                 moonPosition={MOON_POSITION}
                 moonRadius={MOON_RADIUS}
-                // Was hardcoded to `true` — planets (and their HTML labels)
-                // were rendering regardless of scroll position, which is why
-                // they showed up during the sleeping phase. Gated back to the
-                // phases where they're actually meant to appear.
                 planetsVisible={astronautPhase === 'landing' || astronautPhase === 'seated'}
               />
             </group>
@@ -287,10 +292,10 @@ const SpaceCanvas = () => {
 
           <EffectComposer>
             <Bloom
-              luminanceThreshold={0.2}
+              luminanceThreshold={0.9}
               luminanceSmoothing={0.9}
-              intensity={1.5}
-              radius={0.5}
+              intensity={0.8}
+              radius={0.3}
             />
           </EffectComposer>
         </Canvas>
