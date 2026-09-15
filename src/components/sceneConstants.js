@@ -47,21 +47,20 @@ export const PLANET_ROW_Y = MOON_CENTER[1] + MOON_RADIUS + 1.0;
 export const PLANET_ROW_Z = MOON_CENTER[2] - 1.8;
 export const PLANET_ROW_SPACING = 2.2;
 
-// Opening crash-site composition. alien_planet_lv-426.glb is used as the
-// ground — a big landscape-scale sphere the bot sleeps on top of, same
-// "center + radius, surface point derived from both" pattern already proven
-// for the moon (so the sleep position always matches wherever the ground is
-// actually rendered, instead of a separately-guessed coordinate). Radius
-// picked deliberately large (bigger than the moon's) for the "vast
-// landscape, tiny mech" framing requested — needs visual confirmation like
-// every other number here.
-export const GROUND_CENTER = [0, -10, -6];
-export const GROUND_RADIUS = 14;
-export const CRASH_SLEEP_POSITION = [
-  GROUND_CENTER[0],
-  GROUND_CENTER[1] + GROUND_RADIUS * 0.85,
-  GROUND_CENTER[2] + 2,
-];
+// Opening scene: the mech sleeps inside the middle of a real ISS module
+// scan (international_space_station_-_3d_scan_-_module.glb), replacing the
+// earlier crash-site-ground approach that kept fighting oversized backdrop
+// planes and box-scaling bugs. This model is clean by comparison: measured
+// directly at 4.59 x 4.99 x 15.88 units, centered near its own origin
+// (-0.11, 0.02, 0.67) with no weird offset or giant hidden geometry.
+// Positioned close to the first hop platform (not centered on the origin)
+// so waking into the cube field afterward isn't a big jump.
+export const MODULE_WORLD_POSITION = [-1.0, 0.3, -1.0];
+// The model's own measured bounding-box center, used to recenter it so
+// MODULE_WORLD_POSITION actually lands on its true middle, not its
+// arbitrary local origin.
+export const MODULE_LOCAL_CENTER = [-0.11, 0.02, 0.67];
+export const MECH_SLEEP_POSITION = MODULE_WORLD_POSITION;
 
 // Halo wreckage used as distant scattered debris, not the ground itself —
 // positioned well off to the side and back so its detail (the reason it's

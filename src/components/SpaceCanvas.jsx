@@ -8,11 +8,13 @@ import * as THREE from 'three';
 import ControlCubeField from './ControlCubeField';
 import TacticalAstronaut from './TacticalAstronaut';
 import MoonScene from './MoonScene';
+import SleepModule from './SleepModule';
 import {
   HOP_WAYPOINTS,
   MOON_CENTER,
   MOON_RADIUS,
   MOON_SEAT_POSITION,
+  MECH_SLEEP_POSITION,
 } from './sceneConstants';
 
 gsap.registerPlugin(ScrollTrigger);
@@ -96,7 +98,12 @@ function JourneyController({ progressRef, phase }) {
   // this the camera never moves at all until flight starts, which read as
   // "stuck" during sleeping, and he's genuinely hard to pick out in the
   // wide straight framing.
-  const sleepSpot = HOP_WAYPOINTS[0];
+  //
+  // Now references MECH_SLEEP_POSITION (the ISS module's actual center)
+  // instead of HOP_WAYPOINTS[0] (the cube platform) — they're close by
+  // design but not identical, and this framing should center on where he
+  // actually is now.
+  const sleepSpot = MECH_SLEEP_POSITION;
   // Widened from the first attempt — that framing was too tight/low and
   // cropped him out of frame. Camera raised and pulled back further, look
   // target raised too, so he's captured with margin regardless of his exact
@@ -253,6 +260,24 @@ const SpaceCanvas = () => {
                 astronautPhase === 'sleeping'
                 || astronautPhase === 'waking'
                 || astronautPhase === 'idle'
+              }
+            />
+          </Suspense>
+
+          <Suspense fallback={null}>
+            {/* The mech sleeps inside the middle of this ISS module scan,
+                replacing the earlier crash-site-ground approach. Visible
+                through the whole pre-flight stretch (continuous, not a
+                pop-in/out) since it's a fixed structure he's resting in
+                and then leaving, same reasoning as the cube field staying
+                visible throughout. */}
+            <SleepModule
+              visible={
+                astronautPhase === 'sleeping'
+                || astronautPhase === 'waking'
+                || astronautPhase === 'idle'
+                || astronautPhase === 'hopping'
+                || astronautPhase === 'launching'
               }
             />
           </Suspense>
