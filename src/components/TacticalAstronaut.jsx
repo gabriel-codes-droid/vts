@@ -55,6 +55,26 @@ export default function TacticalAstronaut({ phase, position = [0, 0, 0], scale =
   const { scene: jetpack } = useGLTF(JETPACK_MODEL);
   const astronaut = useMemo(() => {
     const clone = cloneSkinnedScene(scene);
+    // Lock every sub-material to real opaque front-face PBR so the mech reads
+    // as a physical solid the camera and other objects can't phase through,
+    // regardless of whatever the source GLB authored for transparency.
+    clone.traverse((object) => {
+      if (!object.isMesh || !object.material) return;
+      const materials = Array.isArray(object.material) ? object.material : [object.material];
+      for (const mat of materials) {
+        mat.transparent = false;
+        mat.opacity = 1;
+        mat.depthWrite = true;
+        mat.depthTest = true;
+        mat.side = THREE.FrontSide;
+        if (mat.clearcoat !== undefined) { mat.clearcoat = 0; mat.clearcoatRoughness = 1; }
+        if (mat.clearcoatMap) { mat.clearcoatMap = undefined; }
+        if (mat.transmission !== undefined) { mat.transmission = 0; }
+        if (mat.transmissionMap) { mat.transmissionMap = undefined; }
+        if (mat.ior !== undefined) { mat.ior = 1; }
+        if (mat.thickness !== undefined) { mat.thickness = 0; }
+      }
+    });
     clone.traverse((object) => {
       if (!object.isMesh || !object.material) return;
       const materials = Array.isArray(object.material) ? object.material : [object.material];

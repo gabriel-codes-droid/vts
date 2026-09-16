@@ -4,11 +4,39 @@ import { useGLTF, Html } from '@react-three/drei';
 import * as THREE from 'three';
 import { PLANET_ROW_SPACING, PLANET_ROW_Y, PLANET_ROW_Z } from './sceneConstants';
 
+// Force every material under a loaded GLB to real opaque PBR so nothing
+// reads as ghostly or phasable.
+function forceSolid(object) {
+  object.traverse((child) => {
+    if (!child.isMesh || !child.material) return;
+    const mats = Array.isArray(child.material) ? child.material : [child.material];
+    for (const m of mats) {
+      m.transparent = false;
+      m.opacity = 1;
+      m.depthWrite = true;
+      m.depthTest = true;
+      m.side = THREE.FrontSide;
+      if (m.clearcoat !== undefined) { m.clearcoat = 0; m.clearcoatRoughness = 1; }
+      if (m.clearcoatMap) { m.clearcoatMap = undefined; }
+      if (m.transmission !== undefined) { m.transmission = 0; }
+      if (m.transmissionMap) { m.transmissionMap = undefined; }
+      if (m.ior !== undefined) { m.ior = 1; }
+      if (m.thickness !== undefined) { m.thickness = 0; }
+      if (m.attenuationColor !== undefined) { m.attenuationColor = new THREE.Color(1, 1, 1); }
+      if (m.emissiveMap && !m.map) { m.emissiveMap = undefined; }
+    }
+  });
+}
+
 // Real moon model, auto-scaled to a known radius so MOON_SEAT_POSITION
 // always lands exactly on its actual surface.
 export function MoonModel({ position, targetRadius }) {
   const { scene } = useGLTF('/models/moon.glb');
-  const cloned = useMemo(() => scene.clone(true), [scene]);
+  const cloned = useMemo(() => {
+    const c = scene.clone(true);
+    forceSolid(c);
+    return c;
+  }, [scene]);
 
   const scale = useMemo(() => {
     const box = new THREE.Box3().setFromObject(cloned);
@@ -46,6 +74,7 @@ function PlanetGLB({ position, size, color, name, modelPath }) {
 
   const scaled = useMemo(() => {
     const clone = scene.clone(true);
+    forceSolid(clone);
     const box = new THREE.Box3().setFromObject(clone);
     const n = new THREE.Vector3();
     box.getSize(n);

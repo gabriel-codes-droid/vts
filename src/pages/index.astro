@@ -8,7 +8,7 @@ import Layout from '../layouts/Layout.astro';
   <SpaceCanvas client:only="react" />
   
   <div class="fixed inset-0 pointer-events-none z-20">
-    <div class="w-full h-screen flex flex-col justify-between p-6 md:p-12 pointer-events-auto">
+    <div class="w-full h-screen flex flex-col justify-between p-6 md:p-12">
       <div class="grid grid-cols-12 gap-6 md:gap-12">
         <div class="col-span-4 md:col-span-3 border-l border-white/10 pl-4 md:pl-6">
           <p class="font-syne font-bold text-[10px] md:text-xs uppercase tracking-[0.2em] text-cyan-400/60 mb-3">
@@ -61,13 +61,13 @@ import Layout from '../layouts/Layout.astro';
         
         <div class="col-span-4 md:col-span-6 flex items-center justify-center">
           <div class="flex gap-8">
-            <a href="https://github.com/innocent" target="_blank" rel="noreferrer" class="font-inter font-medium text-xs md:text-sm text-white/60 hover:text-cyan-400 transition-colors duration-300">
+            <a href="https://github.com/innocent" target="_blank" rel="noreferrer" class="pointer-events-auto font-inter font-medium text-xs md:text-sm text-white/60 hover:text-cyan-400 transition-colors duration-300">
               GitHub
             </a>
-            <a href="https://www.linkedin.com/in/innocent" target="_blank" rel="noreferrer" class="font-inter font-medium text-xs md:text-sm text-white/60 hover:text-cyan-400 transition-colors duration-300">
+            <a href="https://www.linkedin.com/in/innocent" target="_blank" rel="noreferrer" class="pointer-events-auto font-inter font-medium text-xs md:text-sm text-white/60 hover:text-cyan-400 transition-colors duration-300">
               LinkedIn
             </a>
-            <a href="mailto:hello@innocent.dev" class="font-inter font-medium text-xs md:text-sm text-white/60 hover:text-cyan-400 transition-colors duration-300">
+            <a href="mailto:hello@innocent.dev" class="pointer-events-auto font-inter font-medium text-xs md:text-sm text-white/60 hover:text-cyan-400 transition-colors duration-300">
               Contact
             </a>
           </div>
