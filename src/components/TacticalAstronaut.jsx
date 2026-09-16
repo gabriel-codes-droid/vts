@@ -189,6 +189,16 @@ export default function TacticalAstronaut({ phase, position = [0, 0, 0], scale =
       return [targetName, quaternion];
     }));
   }, [astronaut, targetBones]);
+  // Rest LOCAL quaternion for each mapped bone, captured once at load —
+  // used below so the seated pose can be built from the bot's own true
+  // bind orientation instead of inheriting whatever the (wrong-shaped)
+  // chair-sit FBX clip put there.
+  const targetRestLocal = useMemo(() => Object.fromEntries(
+    Object.entries(BONE_MAP).map(([, targetName]) => {
+      const bone = targetBones[targetName];
+      return [targetName, bone ? bone.quaternion.clone() : null];
+    }),
+  ), [targetBones]);
   const poseScratch = useMemo(() => ({
     sourceWorld: new THREE.Quaternion(),
     sourceRestWorldInverse: new THREE.Quaternion(),
@@ -349,28 +359,43 @@ export default function TacticalAstronaut({ phase, position = [0, 0, 0], scale =
     });
 
     // Some mecha clips retain the source rig's bind pose when retargeted.
-    // Keep the supplied FBX as the driver, then add a restrained symmetric
-    // fold so this model reads as seated without crossing its legs.
+    // The underlying issue: Mixamo's "Sitting Idle" clip is a CHAIR-sit pose
+    // (hips raised on a seat, knees hanging down toward a floor below it) —
+    // a fundamentally different shape than sitting directly on a flat
+    // surface like the moon, where hips sit at ground level and legs
+    // extend forward. No retargeting math fixes a wrong source shape.
+    // Previously multiplied a correction ONTO the animated value, which
+    // still partly inherited the bad chair-sit angles. Now builds the
+    // seated leg/arm pose from each bone's own TRUE rest orientation
+    // instead (targetRestLocal, captured once at load) — the FBX clip's
+    // chair-sit data no longer contributes to these bones at all during
+    // seated.
     if (phase === 'seated') {
       // Stronger seated pose adjustments to ensure proper sitting appearance
       ['thigh_stretch_l_057', 'thigh_stretch_r_065'].forEach((name) => {
-        if (targetBones[name]) {
-          const seatedHip = new THREE.Quaternion().setFromEuler(new THREE.Euler(-0.8, 0, 0));
-          targetBones[name].quaternion.multiply(seatedHip);
+        if (targetBones[name] && targetRestLocal[name]) {
+          targetBones[name].quaternion.copy(targetRestLocal[name]).multiply(seatedHipBend);
         }
       });
       ['leg_stretch_l_058', 'leg_stretch_r_066'].forEach((name) => {
-        if (targetBones[name]) {
-          const seatedKnee = new THREE.Quaternion().setFromEuler(new THREE.Euler(1.1, 0, 0));
-          targetBones[name].quaternion.multiply(seatedKnee);
+        if (targetBones[name] && targetRestLocal[name]) {
+          targetBones[name].quaternion.copy(targetRestLocal[name]).multiply(seatedKneeBend);
         }
       });
       // Same correction extended to the arms — see comment at
       // seatedShoulderBend's declaration above.
-      if (targetBones['arm_stretch_l_013']) targetBones['arm_stretch_l_013'].quaternion.multiply(seatedShoulderBend);
-      if (targetBones['arm_stretch_r_036']) targetBones['arm_stretch_r_036'].quaternion.multiply(seatedShoulderBend.clone().invert());
-      if (targetBones['forearm_stretch_l_016']) targetBones['forearm_stretch_l_016'].quaternion.multiply(seatedElbowBend);
-      if (targetBones['forearm_stretch_r_038']) targetBones['forearm_stretch_r_038'].quaternion.multiply(seatedElbowBend);
+      if (targetBones['arm_stretch_l_013'] && targetRestLocal['arm_stretch_l_013']) {
+        targetBones['arm_stretch_l_013'].quaternion.copy(targetRestLocal['arm_stretch_l_013']).multiply(seatedShoulderBend);
+      }
+      if (targetBones['arm_stretch_r_036'] && targetRestLocal['arm_stretch_r_036']) {
+        targetBones['arm_stretch_r_036'].quaternion.copy(targetRestLocal['arm_stretch_r_036']).multiply(seatedShoulderBend.clone().invert());
+      }
+      if (targetBones['forearm_stretch_l_016'] && targetRestLocal['forearm_stretch_l_016']) {
+        targetBones['forearm_stretch_l_016'].quaternion.copy(targetRestLocal['forearm_stretch_l_016']).multiply(seatedElbowBend);
+      }
+      if (targetBones['forearm_stretch_r_038'] && targetRestLocal['forearm_stretch_r_038']) {
+        targetBones['forearm_stretch_r_038'].quaternion.copy(targetRestLocal['forearm_stretch_r_038']).multiply(seatedElbowBend);
+      }
     }
 
     if (phase === 'sleeping' || phase === 'waking') {
