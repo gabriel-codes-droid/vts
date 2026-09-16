@@ -70,6 +70,21 @@ const ControlCubeField = ({
 
   const configurations = cubeConfigurations.length > 0 ? cubeConfigurations : defaultConfigurations;
 
+  // Deterministic (hash-based, not Math.random) so the cube mix is stable
+  // across re-renders the way a real dispersed crash pile would be — not
+  // flickering between variants every frame.
+  const hash = (x, y, z) => {
+    let h = Math.sin(x * 12.9898 + y * 78.233 + z * 45.164) * 43758.5453;
+    return h - Math.floor(h);
+  };
+
+  // Distance-bias the sci-fi cube fill: cubes nearer the impact center are
+  // more likely to be the sci-fi variant so the crash debris cluster reads
+  // as a real dispersed pile rather than a flat random sprinkle. Far cubes
+  // stay as the alien cube so the deep field still reads as background.
+  const originDist = (pos) => Math.sqrt(pos[0] * pos[0] + pos[2] * pos[2]);
+  const maxDist = Math.max(...defaultConfigurations.map(c => originDist(c.position)));
+
   return (
     <group>
       {/* Hop-platform cubes: the character actually stands/hops on these,
@@ -102,6 +117,18 @@ const ControlCubeField = ({
             floatAmplitude={config.floatAmplitude}
             phase={config.phase}
             driftAmplitude={config.driftAmplitude}
+            useSciFiCube={
+              config.useSciFiCube ??
+              (() => {
+                const d = originDist(config.position) / maxDist; // 0 near center, 1 at the farthest configured cube
+                // Near-center cubes use the sci-fi variant ~70% of the time;
+                // the chance drops as you go deeper into the background so the
+                // far field stays as the alien cube and the scene doesn't turn
+                // into one giant sci-fi pile.
+                const distBias = Math.max(0.25, 0.7 - d * 0.55);
+                return hash(config.position[0], config.position[1], config.position[2]) < distBias;
+              })()
+            }
           />
         ))}
       </group>

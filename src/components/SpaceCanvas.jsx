@@ -9,6 +9,7 @@ import ControlCubeField from './ControlCubeField';
 import TacticalAstronaut from './TacticalAstronaut';
 import MoonScene from './MoonScene';
 import SleepModule from './SleepModule';
+import DistantDebris from './DistantDebris';
 import {
   HOP_WAYPOINTS,
   MOON_CENTER,
@@ -251,16 +252,10 @@ const SpaceCanvas = () => {
             <ControlCubeField
               visible={true}
               platformsVisible={
-                astronautPhase === 'sleeping'
-                || astronautPhase === 'waking'
-                || astronautPhase === 'idle'
-                || astronautPhase === 'hopping'
+                astronautPhase === 'hopping'
+                || astronautPhase === 'launching'
               }
-              firstPlatformOnly={
-                astronautPhase === 'sleeping'
-                || astronautPhase === 'waking'
-                || astronautPhase === 'idle'
-              }
+              firstPlatformOnly={false}
             />
           </Suspense>
 
@@ -285,6 +280,24 @@ const SpaceCanvas = () => {
           {/* CrashSite removed completely - alien_planet_lv-426.glb no longer used */}
 
           <Suspense fallback={null}>
+            {/* Was part of the old CrashSite.jsx, which got deleted entirely
+                along with the ground approach it was paired with — the
+                debris rendering itself was never actually broken, it just
+                had no home to render from anymore. Re-wired standalone,
+                visible through the same continuous opening stretch as the
+                cube field and sleep module. */}
+            <DistantDebris
+              visible={
+                astronautPhase === 'sleeping'
+                || astronautPhase === 'waking'
+                || astronautPhase === 'idle'
+                || astronautPhase === 'hopping'
+                || astronautPhase === 'launching'
+              }
+            />
+          </Suspense>
+
+          <Suspense fallback={null}>
             {/* Moon only appears during landing/seated phases when mech watches planets */}
             <group
               visible={
@@ -306,11 +319,14 @@ const SpaceCanvas = () => {
 
           <OrbitControls
             enableRotate={true}
-            enableZoom={false}
+            enableZoom={true}
             enablePan={false}
+            zoomSpeed={0.6}
             rotateSpeed={0.45}
             maxPolarAngle={Math.PI / 1.8}
-            minPolarAngle={Math.PI / 4}
+            minPolarAngle={Math.PI / 5}
+            minDistance={2}
+            maxDistance={45}
             enableDamping={true}
             dampingFactor={0.04}
           />

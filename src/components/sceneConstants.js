@@ -12,13 +12,16 @@
 // the moon surface facing the planet row.
 
 export const HOP_CUBE_SIZE = 0.8;
+// Hop path now runs along the ISS module's actual lower/exterior surface
+// (measured world Y ≈ -2.2, module spans Z from about -8.9 to 6.9) instead
+// of separate floating cube platforms. Starts near where he wakes (close to
+// MECH_SLEEP_POSITION's Z of 5.5, just outside/below the interior sleep
+// spot) and progresses along the belly toward the far end, ending at the
+// launch point.
 export const HOP_WAYPOINTS = [
-  // The first platform is the large cube to the mech's left in the hero
-  // framing; the bot is planted here after waking before continuing across
-  // the remaining platforms. Y adjusted so feet rest on cube surface.
-  [-1.0, 0.3, -0.5],
-  [0.8, 0.85, -1.2],
-  [1.2, -0.5, -1.5],
+  [-1.0, -2.2, 4.0],
+  [-0.3, -2.2, 0.0],
+  [0.5, -2.2, -4.5],
 ];
 export const HOP_CUBES = HOP_WAYPOINTS.map((point) => [
   point[0],
@@ -60,7 +63,10 @@ export const MODULE_WORLD_POSITION = [-1.0, 0.3, -1.0];
 // MODULE_WORLD_POSITION actually lands on its true middle, not its
 // arbitrary local origin.
 export const MODULE_LOCAL_CENTER = [-0.11, 0.02, 0.67];
-export const MECH_SLEEP_POSITION = MODULE_WORLD_POSITION;
+// The mech sleeps on the inner lower surface (interior floor) of the module,
+// at the -Z end (opposite the hop/waypoint end at +Z). Y = -1.9 lands on
+// the interior floor without phasing through the hull exterior at y ≈ -2.2.
+export const MECH_SLEEP_POSITION = [-1.0, -1.9, -8.2];
 
 // Halo wreckage used as distant scattered debris, not the ground itself —
 // positioned well off to the side and back so its detail (the reason it's

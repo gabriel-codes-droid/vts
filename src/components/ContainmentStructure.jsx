@@ -4,7 +4,9 @@ import { useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
 
 const CUBE_MODEL = '/models/aliencubealpha-unit.glb';
-const CUBE_SIZE_MULTIPLIER = 1.22;
+const SCIFI_CUBE_MODEL = '/models/sci-fi_cube_01.glb';
+const CUBE_SIZE_MULTIPLIER = 1.35;
+const SCIFI_CUBE_SIZE_MULTIPLIER = 1.85;
 
 const ContainmentStructure = ({ 
   position = [0, 0, 0], 
@@ -18,22 +20,49 @@ const ContainmentStructure = ({
   stationary = false,
   size = 1.3,
   flattenY = 1,
+  useSciFiCube = false,
 }) => {
   const groupRef = useRef();
-  const { scene } = useGLTF(CUBE_MODEL);
+  const { scene: alienScene } = useGLTF(CUBE_MODEL);
+  const { scene: scifiScene } = useGLTF(SCIFI_CUBE_MODEL);
 
   const cubeModel = useMemo(() => {
-    const clone = scene.clone(true);
+    // Pick the model variant. The sci-fi cube uses its own size multiplier
+    // so its on-screen footprint matches the alien cube at the same `size`.
+    const sourceScene = useSciFiCube ? scifiScene : alienScene;
+    const sizeMultiplier = useSciFiCube ? SCIFI_CUBE_SIZE_MULTIPLIER : CUBE_SIZE_MULTIPLIER;
+    const clone = sourceScene.clone(true);
     const bounds = new THREE.Box3().setFromObject(clone);
     const dimensions = bounds.getSize(new THREE.Vector3());
     const maxDimension = Math.max(dimensions.x, dimensions.y, dimensions.z);
     const center = bounds.getCenter(new THREE.Vector3());
     const normalizedScale = maxDimension > 0
-      ? (size * CUBE_SIZE_MULTIPLIER) / maxDimension
+      ? (size * sizeMultiplier) / maxDimension
       : 1;
 
     clone.position.copy(center).multiplyScalar(-normalizedScale);
     clone.scale.setScalar(normalizedScale);
+
+    // Lock every sub-material to real opaque front-face PBR so the cube
+    // reads as a physical solid that other objects can't phase through,
+    // regardless of whatever the source GLB authored for transparency.
+    clone.traverse((object) => {
+      if (!object.isMesh || !object.material) return;
+      const materials = Array.isArray(object.material) ? object.material : [object.material];
+      for (const mat of materials) {
+        mat.transparent = false;
+        mat.opacity = 1;
+        mat.depthWrite = true;
+        mat.depthTest = true;
+        mat.side = THREE.FrontSide;
+        if (mat.clearcoat !== undefined) { mat.clearcoat = 0; mat.clearcoatRoughness = 1; }
+        if (mat.clearcoatMap) { mat.clearcoatMap = undefined; }
+        if (mat.transmission !== undefined) { mat.transmission = 0; }
+        if (mat.transmissionMap) { mat.transmissionMap = undefined; }
+        if (mat.ior !== undefined) { mat.ior = 1; }
+        if (mat.thickness !== undefined) { mat.thickness = 0; }
+      }
+    });
 
     clone.traverse((object) => {
       if (!object.isMesh || !object.material) return;
@@ -66,7 +95,7 @@ const ContainmentStructure = ({
     });
 
     return clone;
-  }, [scene, size]);
+  }, [alienScene, scifiScene, size, useSciFiCube]);
 
   const driftDir = useMemo(
     () => ({ x: Math.cos(phase * 2.1), z: Math.sin(phase * 1.7) }),
@@ -85,9 +114,10 @@ const ContainmentStructure = ({
       if (stationary) {
         // Keep the enlarged/flattened hop platform's top face at the
         // original waypoint height so the character remains planted on it.
+        const sizeMultiplier = useSciFiCube ? SCIFI_CUBE_SIZE_MULTIPLIER : CUBE_SIZE_MULTIPLIER;
         groupRef.current.position.set(
           position[0],
-          position[1] - (size * (CUBE_SIZE_MULTIPLIER * flattenY - 1)) / 2,
+          position[1] - (size * (sizeMultiplier * flattenY - 1)) / 2,
           position[2],
         );
       } else {
@@ -112,5 +142,6 @@ const ContainmentStructure = ({
 };
 
 useGLTF.preload(CUBE_MODEL);
+useGLTF.preload(SCIFI_CUBE_MODEL);
 
 export default ContainmentStructure;
