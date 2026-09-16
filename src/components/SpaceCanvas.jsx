@@ -210,12 +210,65 @@ const SpaceCanvas = () => {
       end: 'bottom bottom',
       scrub: 1,
       onUpdate: (self) => {
+        if (!scrollFired) {
+          scrollFired = true;
+          t0 = t0 || performance.now();
+          tryHide();
+        }
         scrollProgressRef.current = self.progress;
         setAstronautPhase(phaseForProgress(self.progress));
       },
     });
 
-    return () => trigger.kill();
+    // Signal the boot HUD that the page is actually live and scrollable.
+    // Hide once the R3F canvas has painted AND ScrollTrigger has done its
+    // first update (so scrolling is responsive), or after a short grace
+    // period at most — never make the visitor keep scrolling to clear it.
+    let rafId = 0;
+    let t0 = performance.now();
+    let scrollFired = false;
+    let canvasPainted = false;
+    const GRACE_MS = 1500;   // minimum time the HUD stays up even if scene is fast
+    const HARD_TIMEOUT_MS = 5000; // absolute fallback — never leave it stuck
+
+    const tryHide = () => {
+      const hud = document.getElementById('boot-hud');
+      if (!hud || getComputedStyle(hud).display === 'none') return;
+      const painted = canvasRef.current &&
+        canvasRef.current.getBoundingClientRect().width > 4 &&
+        canvasRef.current.getBoundingClientRect().height > 4;
+      canvasPainted = canvasPainted || painted;
+      const elapsed = performance.now() - t0;
+      const ready = (canvasPainted && scrollFired) || elapsed >= GRACE_MS;
+      if (ready) {
+        hud.style.transition = 'opacity 0.45s ease, visibility 0.45s ease';
+        hud.style.opacity = '0';
+        hud.style.visibility = 'hidden';
+        setTimeout(() => { hud.style.display = 'none'; }, 450);
+      }
+    };
+
+    // Re-check on each frame until hidden, plus a hard timeout so a slow
+    // first paint can't keep the HUD up indefinitely.
+    let hardTimer = setTimeout(tryHide, HARD_TIMEOUT_MS);
+    const frame = () => {
+      if (document.getElementById('boot-hud') &&
+          getComputedStyle(document.getElementById('boot-hud')).display !== 'none') {
+        tryHide();
+        if (canvasPainted || scrollFired || performance.now() - t0 >= HARD_TIMEOUT_MS) {
+          // conditions met or timeout hit; stop polling
+        } else {
+          rafId = requestAnimationFrame(frame);
+        }
+      }
+    };
+
+    rafId = requestAnimationFrame(frame);
+    return () => {
+      if (rafId) cancelAnimationFrame(rafId);
+      clearTimeout(hardTimer);
+      trigger.kill();
+    };
   }, []);
 
   return (
