@@ -22,15 +22,22 @@ gsap.registerPlugin(ScrollTrigger);
 
 // Scroll-progress bands mapped to each phase of the journey.
 const PHASE_BANDS = [
-  // Give the opening enough scroll distance to be seen: rubble/sleep first,
-  // then the wake-up before the first platform hop begins.
-  { end: 0.14, phase: 'sleeping' },
-  { end: 0.22, phase: 'waking' },
-  { end: 0.27, phase: 'idle' },
-  { end: 0.39, phase: 'hopping' },
-  { end: 0.48, phase: 'launching' },
-  { end: 0.75, phase: 'flying' },
+  // Sleeping first — the shuttle dominates the frame and the mech is inside it.
+  { end: 0.08, phase: 'sleeping' },
+  // Waking: the sit-up animation plays. Wide enough band so it is actually
+  // viewed instead of skipped over by the scroll.
+  { end: 0.18, phase: 'waking' },
+  // Idle/delay band: the mech holds the awake pose inside the shuttle so the
+  // sit-up reads before he hops out. This is the "delay so it is viewed" band.
+  { end: 0.30, phase: 'idle' },
+  // Three hops: sleep position -> cube 1 -> cube 2 -> cube 3 (launch point).
+  { end: 0.46, phase: 'hopping' },
+  { end: 0.54, phase: 'launching' },
+  // Fly down toward the moon. Camera tracks the mech so his whole body stays
+  // in frame during the descent.
+  { end: 0.78, phase: 'flying' },
   { end: 0.88, phase: 'landing' },
+  // Seated on the moon, watching the planets. Zoomed-in, fills the screen.
   { end: 1.0, phase: 'seated' },
 ];
 
@@ -43,7 +50,7 @@ function phaseForProgress(progress) {
 
 const MOON_POSITION = MOON_CENTER;
 
-const FLIGHT_START = 0.39; // matches the launching path start
+const FLIGHT_START = 0.46; // matches the launching band start
 const FLIGHT_END = 1.0;
 
 function smoothstep(t) {
@@ -85,51 +92,28 @@ function JourneyController({ progressRef, phase }) {
   // animation frame by the cinematic follow camera.
   const lastProgressRef = useRef(-1);
 
-  // Was (0, -10, -8) — that exactly matches the old GROUND_CENTER from the
-  // now-deleted crash site, a leftover aim point with nothing there anymore.
-  // Recomputed to actually frame the hop-waypoint cluster where the
-  // character and cubes really are (x -1 to 1.2, y -0.5 to 0.85, z -0.5 to
-  // -1.5), which is why he was never actually visible during waking/idle/
-  // hopping despite the cubes themselves rendering fine.
-  const heroCamPos = useRef(new THREE.Vector3(0, 2.0, 6));
-  const heroCamLook = useRef(new THREE.Vector3(0.1, 0.3, -1.0));
-  // Distinct oblique framing for the sleeping phase specifically — offset
-  // to the side and closer, angled down at him, rather than the same wide
-  // straight-on view used for the rest of the pre-flight stretch. Without
-  // this the camera never moves at all until flight starts, which read as
-  // "stuck" during sleeping, and he's genuinely hard to pick out in the
-  // wide straight framing.
-  //
-  // Now references MECH_SLEEP_POSITION (the ISS module's actual center)
-  // instead of HOP_WAYPOINTS[0] (the cube platform) — they're close by
-  // design but not identical, and this framing should center on where he
-  // actually is now.
+  // Fresh framing for the centered shuttle: the mech sleeps inside at the
+  // -Z end. Camera sits off to one side and slightly above, angled down at
+  // him so the shuttle dominates the frame the way the reference image shows
+  // (heavy structure on the left/center, mech small inside it).
+  const heroCamPos = useRef(new THREE.Vector3(-1.5, 2.5, 5.5));
+  const heroCamLook = useRef(new THREE.Vector3(0, 0.0, -3.5));
+  // Sleep camera: close oblique on the mech inside the shuttle at the -Z end.
   const sleepSpot = MECH_SLEEP_POSITION;
-  // Widened from the first attempt — that framing was too tight/low and
-  // cropped him out of frame. Camera raised and pulled back further, look
-  // target raised too, so he's captured with margin regardless of his exact
-  // height/pose rather than assuming a precise position that turned out
-  // wrong.
   const sleepCamPos = useRef(
-    new THREE.Vector3(sleepSpot[0] - 4.0, sleepSpot[1] + 3.5, sleepSpot[2] + 6.5)
+    new THREE.Vector3(sleepSpot[0] - 2.5, sleepSpot[1] + 2.5, sleepSpot[2] + 4.0)
   );
   const sleepCamLook = useRef(
-    new THREE.Vector3(sleepSpot[0], sleepSpot[1] + 1.2, sleepSpot[2])
+    new THREE.Vector3(sleepSpot[0], sleepSpot[1] + 0.6, sleepSpot[2])
   );
-  // Final framing: pulled back and angled so the moon (lower-foreground)
-  // and the row of project planets (upper) are both in frame together,
-  // matching the reference "watch the planets" composition.
+  // Zoomed-in moon-watching framing: the moon is enlarged and pulled forward,
+  // so the seated mech + planet row fit the screen together. Camera sits above
+  // and in front, looking down at the seat/planet row.
   const moonCamPos = useRef(
-    new THREE.Vector3(
-      MOON_SEAT_POSITION[0] + 2.0,
-      MOON_SEAT_POSITION[1] + 5.5,
-      MOON_SEAT_POSITION[2] + 10
-    )
+    new THREE.Vector3(0, 4.5, 7.5)
   );
   const moonCamLook = useRef(
-    // Aim between the moon's top and the planet row so the four planets stay
-    // inside the frame instead of being cropped against the top edge.
-    new THREE.Vector3(MOON_POSITION[0], MOON_POSITION[1] + MOON_RADIUS + 0.25, MOON_POSITION[2])
+    new THREE.Vector3(0, -1.0, -5.0)
   );
 
   useFrame(() => {
