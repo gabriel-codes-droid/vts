@@ -92,6 +92,10 @@ function JourneyController({ progressRef, phase }) {
   // animation frame by the cinematic follow camera.
   const lastProgressRef = useRef(-1);
 
+  // Shared refs so the camera can track the mech during hop/launch/flight.
+  const mechPosRef = useRef(new THREE.Vector3());
+  const mechYawRef = useRef(0);
+
   // Fresh framing for the centered shuttle: the mech sleeps inside at the
   // -Z end. Camera sits off to one side and slightly above, angled down at
   // him so the shuttle dominates the frame the way the reference image shows
@@ -118,14 +122,40 @@ function JourneyController({ progressRef, phase }) {
 
   useFrame(() => {
     const progress = progressRef.current;
-    const progressChanged = Math.abs(progress - lastProgressRef.current) > 0.0001;
 
+    // During hop, launch, and flight, track the mech so the camera follows
+    // his whole body down the descent instead of pulling ahead to the moon
+    // before he gets there.
+    if (phase === 'hopping' || phase === 'launching' || phase === 'flying') {
+      if (mechPosRef.current) {
+        const p = mechPosRef.current;
+        const yaw = mechYawRef.current;
+        // Chase offset: behind and above the mech in his own facing direction.
+        const behindX = -Math.sin(yaw) * 3.2;
+        const behindZ = -Math.cos(yaw) * 3.2;
+        const targetPos = new THREE.Vector3(
+          p.x + behindX,
+          p.y + 2.8,
+          p.z + behindZ
+        );
+        // Blend the camera onto the chase pose so it does not snap at the
+        // moment the phase flips into hop/launch/flying.
+        const blend = smoothstep(Math.min(1, (progress - (phase === 'hopping' ? 0.30 : FLIGHT_START)) / 0.06));
+        camera.position.lerpVectors(
+          phase === 'hopping' ? sleepCamPos.current : heroCamPos.current,
+          targetPos,
+          blend
+        );
+        camera.lookAt(p);
+        lastProgressRef.current = progress;
+        return;
+      }
+    }
+
+    // Pre-flight: sleeping, waking, idle. Blend from the close sleep camera
+    // to the wider hero framing as waking plays out.
     if (progress < FLIGHT_START) {
-      // Sleeping gets its own oblique framing, blending smoothly into the
-      // straight hero view as waking plays out — not an instant cut, tied
-      // to actual scroll progress across the sleeping→waking band (0 to
-      // 0.22) the same way the flight camera below already blends.
-      const wakeBlend = smoothstep(progress / 0.22);
+      const wakeBlend = smoothstep(progress / 0.18);
       camera.position.lerpVectors(sleepCamPos.current, heroCamPos.current, wakeBlend);
       const preFlightLook = new THREE.Vector3().lerpVectors(sleepCamLook.current, heroCamLook.current, wakeBlend);
       camera.lookAt(preFlightLook);
@@ -133,19 +163,14 @@ function JourneyController({ progressRef, phase }) {
       return;
     }
 
-    // Flight progress within the launching -> seated range
+    // Flight progress within the launching -> seated range. Blend from the
+    // hero framing onto the zoomed-in moon-watching framing.
     const t = smoothstep((progress - FLIGHT_START) / (FLIGHT_END - FLIGHT_START));
-
-    // TacticalAstronaut owns the character's world-space launch/flight/
-    // landing path. Do not translate a parent wrapper here as well: doing so
-    // would apply the moon offset twice and leave the mech floating away from
-    // the moon's top surface. The camera follows the same progress separately.
-
     camera.position.lerpVectors(heroCamPos.current, moonCamPos.current, t);
     const lookTarget = new THREE.Vector3().lerpVectors(heroCamLook.current, moonCamLook.current, t);
     camera.lookAt(lookTarget);
 
-    // Ensure camera stays at final position in seated phase even when scrolling stops
+    // Hold the final moon-watching framing once scrolling settles in seated.
     if (progress >= 0.95) {
       camera.position.copy(moonCamPos.current);
       camera.lookAt(moonCamLook.current);
@@ -163,6 +188,8 @@ function JourneyController({ progressRef, phase }) {
         hopPoints={HOP_WAYPOINTS}
         hopPositionRef={hopPositionRef}
         journeyProgressRef={progressRef}
+        mechPosRef={mechPosRef}
+        mechYawRef={mechYawRef}
       />
     </group>
   );

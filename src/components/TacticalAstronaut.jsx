@@ -46,7 +46,7 @@ const BONE_MAP = {
 // group origin can be placed directly on the shared cube-top waypoint.
 const FOOT_OFFSET = 0;
 
-export default function TacticalAstronaut({ phase, position = [0, 0, 0], scale = 1, hopPoints = [[0, 0, 0]], hopPositionRef, journeyProgress = 0, journeyProgressRef }) {
+export default function TacticalAstronaut({ phase, position = [0, 0, 0], scale = 1, hopPoints = [[0, 0, 0]], hopPositionRef, journeyProgress = 0, journeyProgressRef, mechPosRef, mechYawRef }) {
   const group = useRef(null);
   const hopIndex = useRef(0);
   const hopStart = useRef(null);
@@ -310,8 +310,17 @@ export default function TacticalAstronaut({ phase, position = [0, 0, 0], scale =
       // legitimate lean/tilt (pitch/roll) the source animation contributes.
       // The group's own rotation.y remains the only source of facing
       // direction.
-      // Skip hip twist correction during hopping to preserve jump.fbx's natural movement
-      if (targetName === 'root_x_03' && phase !== 'hopping' && phase !== 'launching') {
+      // Twist-stripping now runs for every phase, including hopping/
+      // launching. It used to be skipped there specifically "to preserve
+      // jump.fbx's natural movement" — but that meant hopping ran on the
+      // raw, uncorrected retargeting, the exact thing that caused tangled
+      // legs everywhere else before this fix. The cache-staleness bug is
+      // now fixed in both branches below, so applying the correction here
+      // too is safe. Trade-off worth knowing: this also strips whatever
+      // legitimate yaw momentum jump.fbx's hip animation contributes during
+      // the jump arc, which may make the hop's rotation feel slightly less
+      // natural — a real cost, but tangled legs are worse.
+      if (targetName === 'root_x_03') {
         const q = targetBone.quaternion;
         const dot = q.y; // projection onto the (0,1,0) twist axis
         poseScratch.hipTwist.set(0, dot, 0, q.w).normalize();
@@ -474,6 +483,13 @@ export default function TacticalAstronaut({ phase, position = [0, 0, 0], scale =
     const seatedPlanetDz = PLANET_ROW_Z - MOON_SEAT_POSITION[2];
     const angleToPlanets = Math.atan2(seatedPlanetDx, seatedPlanetDz);
     group.current.rotation.y = THREE.MathUtils.lerp(hopDirRef.current.z, angleToPlanets, eased);
+
+    // Publish world position + yaw for JourneyController's chase camera.
+    if (group.current && mechPosRef) {
+      group.current.updateMatrixWorld(true);
+      group.current.getWorldPosition(mechPosRef.current);
+      mechYawRef.current = group.current.rotation.y;
+    }
   });
 
   useEffect(() => {
