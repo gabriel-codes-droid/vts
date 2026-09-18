@@ -1,15 +1,17 @@
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, Environment } from '@react-three/drei';
 import { EffectComposer, Bloom } from '@react-three/postprocessing';
-import { Suspense, useRef, useState, useEffect } from 'react';
+import { Suspense, useRef, useState, useEffect, useCallback, Component } from 'react';
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import * as THREE from 'three';
+import { phaseForProgress, smooth } from './journey';
 import ControlCubeField from './ControlCubeField';
 import TacticalAstronaut from './TacticalAstronaut';
 import MoonScene from './MoonScene';
 import SleepModule from './SleepModule';
 import DistantDebris from './DistantDebris';
+import SceneReady, { AssetProgress, reportBoot } from './SceneReady';
 import {
   HOP_WAYPOINTS,
   MOON_CENTER,
@@ -20,61 +22,7 @@ import {
 
 gsap.registerPlugin(ScrollTrigger);
 
-// Scroll-progress bands mapped to each phase of the journey.
-const PHASE_BANDS = [
-  // Sleeping first — the shuttle dominates the frame and the mech is inside it.
-  { end: 0.08, phase: 'sleeping' },
-  // Waking: the sit-up animation plays. Wide enough band so it is actually
-  // viewed instead of skipped over by the scroll.
-  { end: 0.18, phase: 'waking' },
-  // Idle/delay band: the mech holds the awake pose inside the shuttle so the
-  // sit-up reads before he hops out. This is the "delay so it is viewed" band.
-  { end: 0.30, phase: 'idle' },
-  // Three hops: sleep position -> cube 1 -> cube 2 -> cube 3 (launch point).
-  { end: 0.46, phase: 'hopping' },
-  { end: 0.54, phase: 'launching' },
-  // Fly down toward the moon. Camera tracks the mech so his whole body stays
-  // in frame during the descent.
-  { end: 0.78, phase: 'flying' },
-  { end: 0.88, phase: 'landing' },
-  // Seated on the moon, watching the planets. Zoomed-in, fills the screen.
-  { end: 1.0, phase: 'seated' },
-];
-
-function phaseForProgress(progress) {
-  for (const band of PHASE_BANDS) {
-    if (progress < band.end) return band.phase;
-  }
-  return 'seated';
-}
-
 const MOON_POSITION = MOON_CENTER;
-
-const FLIGHT_START = 0.46; // matches the launching band start
-const FLIGHT_END = 1.0;
-
-function smoothstep(t) {
-  const c = Math.min(Math.max(t, 0), 1);
-  return c * c * (3 - 2 * c);
-}
-
-// Lightweight visual fallback while the large cube GLB is being parsed. The
-// real alien cube replaces this at the same waypoint once it is ready.
-function OpeningPlatform({ visible = true }) {
-  const [x, y, z] = HOP_WAYPOINTS[0];
-  return (
-    <mesh position={[x, y - 0.18, z]} visible={visible}>
-      <boxGeometry args={[0.98, 0.36, 0.98]} />
-      <meshStandardMaterial
-        color="#0A2235"
-        emissive="#00BFFF"
-        emissiveIntensity={0.45}
-        metalness={0.75}
-        roughness={0.38}
-      />
-    </mesh>
-  );
-}
 
 /**
  * Lives inside <Canvas>. Reads scroll progress every frame (via a ref, not
@@ -86,6 +34,8 @@ function OpeningPlatform({ visible = true }) {
  */
 function JourneyController({ progressRef, phase }) {
   const hopPositionRef = useRef(new THREE.Vector3());
+  const targetPosition = useRef(new THREE.Vector3());
+  const targetLook = useRef(new THREE.Vector3());
   const { camera } = useThree();
   // Follow scroll only while progress is changing. Once the scroll settles,
   // OrbitControls owns the camera so a cursor drag is not overwritten every
@@ -96,88 +46,71 @@ function JourneyController({ progressRef, phase }) {
   const mechPosRef = useRef(new THREE.Vector3());
   const mechYawRef = useRef(0);
 
-  // Fresh framing for the centered shuttle: the mech sleeps inside at the
-  // -Z end. Camera sits off to one side and slightly above, angled down at
-  // him so the shuttle dominates the frame the way the reference image shows
-  // (heavy structure on the left/center, mech small inside it).
-  const heroCamPos = useRef(new THREE.Vector3(-1.5, 2.5, 5.5));
-  const heroCamLook = useRef(new THREE.Vector3(0, 0.0, -3.5));
-  // Sleep camera: close oblique on the mech inside the shuttle at the -Z end.
+  // Fresh framing for the horizontal module: the mech sleeps just inside the
+  // open +Z hatch. Camera sits just outside that end and looks down the
+  // corridor so the interior fills the opening like the supplied reference.
+  const heroCamPos = useRef(new THREE.Vector3(0, 0.5, 23.0));
+  const heroCamLook = useRef(new THREE.Vector3(0, -4, 10));
+  // Sleep camera: just inside the open end, looking down the module's length
+  // toward the mech. This keeps the interior wall normals facing the camera,
+  // while the slight left/above offset preserves the reference composition.
   const sleepSpot = MECH_SLEEP_POSITION;
   const sleepCamPos = useRef(
-    new THREE.Vector3(sleepSpot[0] - 2.5, sleepSpot[1] + 2.5, sleepSpot[2] + 4.0)
+    new THREE.Vector3(0, 1.2, sleepSpot[2] + 4.3)
   );
   const sleepCamLook = useRef(
-    new THREE.Vector3(sleepSpot[0], sleepSpot[1] + 0.6, sleepSpot[2])
+    new THREE.Vector3(0.15, -0.8, 4.2)
   );
   // Zoomed-in moon-watching framing: the moon is enlarged and pulled forward,
   // so the seated mech + planet row fit the screen together. Camera sits above
   // and in front, looking down at the seat/planet row.
   const moonCamPos = useRef(
-    new THREE.Vector3(0, 4.5, 7.5)
+    new THREE.Vector3(0, MOON_SEAT_POSITION[1] + 3.5, 2)
   );
   const moonCamLook = useRef(
-    new THREE.Vector3(0, -1.0, -5.0)
+    new THREE.Vector3(0, MOON_SEAT_POSITION[1] + 1.5, -9)
   );
 
-  useFrame(() => {
+  useFrame((state) => {
     const progress = progressRef.current;
-
-    // During hop, launch, and flight, track the mech so the camera follows
-    // his whole body down the descent instead of pulling ahead to the moon
-    // before he gets there.
-    if (phase === 'hopping' || phase === 'launching' || phase === 'flying') {
-      if (mechPosRef.current) {
-        const p = mechPosRef.current;
-        const yaw = mechYawRef.current;
-        // Chase offset: behind and above the mech in his own facing direction.
-        const behindX = -Math.sin(yaw) * 3.2;
-        const behindZ = -Math.cos(yaw) * 3.2;
-        const targetPos = new THREE.Vector3(
-          p.x + behindX,
-          p.y + 2.8,
-          p.z + behindZ
-        );
-        // Blend the camera onto the chase pose so it does not snap at the
-        // moment the phase flips into hop/launch/flying.
-        const blend = smoothstep(Math.min(1, (progress - (phase === 'hopping' ? 0.30 : FLIGHT_START)) / 0.06));
-        camera.position.lerpVectors(
-          phase === 'hopping' ? sleepCamPos.current : heroCamPos.current,
-          targetPos,
-          blend
-        );
-        camera.lookAt(p);
-        lastProgressRef.current = progress;
-        return;
-      }
-    }
-
-    // Pre-flight: sleeping, waking, idle. Blend from the close sleep camera
-    // to the wider hero framing as waking plays out.
-    if (progress < FLIGHT_START) {
-      const wakeBlend = smoothstep(progress / 0.18);
-      camera.position.lerpVectors(sleepCamPos.current, heroCamPos.current, wakeBlend);
-      const preFlightLook = new THREE.Vector3().lerpVectors(sleepCamLook.current, heroCamLook.current, wakeBlend);
-      camera.lookAt(preFlightLook);
-      lastProgressRef.current = progress;
-      return;
-    }
-
-    // Flight progress within the launching -> seated range. Blend from the
-    // hero framing onto the zoomed-in moon-watching framing.
-    const t = smoothstep((progress - FLIGHT_START) / (FLIGHT_END - FLIGHT_START));
-    camera.position.lerpVectors(heroCamPos.current, moonCamPos.current, t);
-    const lookTarget = new THREE.Vector3().lerpVectors(heroCamLook.current, moonCamLook.current, t);
-    camera.lookAt(lookTarget);
-
-    // Hold the final moon-watching framing once scrolling settles in seated.
-    if (progress >= 0.95) {
-      camera.position.copy(moonCamPos.current);
-      camera.lookAt(moonCamLook.current);
-    }
-
+    const p = mechPosRef.current;
+    const controls = state.controls;
+    // Let dragging own the view after the scroll settles.
+    if (Math.abs(progress - lastProgressRef.current) < 0.00001) return;
     lastProgressRef.current = progress;
-  });
+    if (progress < 0.30) {
+      const reveal = smooth((progress - 0.18) / 0.12);
+      targetPosition.current.lerpVectors(sleepCamPos.current, heroCamPos.current, reveal);
+      targetLook.current.lerpVectors(sleepCamLook.current, heroCamLook.current, reveal);
+    } else if (progress < 0.78) {
+      // Keep the original readable chase path: the camera follows just behind
+      // the mech through the three hop platforms and the first flight arc.
+      // This preserves the scene's intended order while avoiding a jump to a
+      // fixed destination that can make the route feel disconnected.
+      const yaw = mechYawRef.current;
+      targetPosition.current.set(
+        p.x - Math.sin(yaw) * 3.2,
+        p.y + 2.8,
+        p.z - Math.cos(yaw) * 3.2,
+      );
+      targetLook.current.copy(p);
+      const chaseStart = progress < 0.46 ? 0.30 : 0.46;
+      const chaseAnchor = progress < 0.46 ? sleepCamPos.current : heroCamPos.current;
+      const chaseBlend = smooth((progress - chaseStart) / 0.06);
+      targetPosition.current.lerpVectors(chaseAnchor, targetPosition.current, chaseBlend);
+      const moonBlend = smooth((progress - 0.70) / 0.18);
+      targetPosition.current.lerp(moonCamPos.current, moonBlend);
+      targetLook.current.lerp(moonCamLook.current, moonBlend);
+    } else {
+      targetPosition.current.copy(moonCamPos.current);
+      targetLook.current.copy(moonCamLook.current);
+    }
+    camera.position.copy(targetPosition.current);
+    if (controls) {
+      controls.target.copy(targetLook.current);
+      controls.update();
+    } else camera.lookAt(targetLook.current);
+  }, -1);
 
   return (
     <group>
@@ -195,88 +128,63 @@ function JourneyController({ progressRef, phase }) {
   );
 }
 
+class SceneErrorBoundary extends Component {
+  state = { failed: false };
+  static getDerivedStateFromError() { return { failed: true }; }
+  componentDidCatch(error) {
+    console.error('Scene loading failed', error);
+    reportBoot('error', 0, 'An asset could not load. Reload to retry.');
+  }
+  render() { return this.state.failed ? null : this.props.children; }
+}
+
 const SpaceCanvas = () => {
   const canvasRef = useRef();
   const scrollTrackRef = useRef(null);
   const [astronautPhase, setAstronautPhase] = useState('sleeping');
   const scrollProgressRef = useRef(0);
 
-  useEffect(() => {
-    if (!scrollTrackRef.current) return;
+  const [ready, setReady] = useState(false);
+  const handleReady = useCallback(() => setReady(true), []);
 
-    const trigger = ScrollTrigger.create({
-      trigger: scrollTrackRef.current,
-      start: 'top top',
-      end: 'bottom bottom',
-      scrub: 1,
-      onUpdate: (self) => {
-        if (!scrollFired) {
-          scrollFired = true;
-          t0 = t0 || performance.now();
-          tryHide();
-        }
-        scrollProgressRef.current = self.progress;
-        setAstronautPhase(phaseForProgress(self.progress));
+  useEffect(() => {
+    if (!ready || !scrollTrackRef.current) return;
+    const playhead = { progress: 0 };
+    // scrub only smooths an attached animation; it did nothing on the old
+    // bare ScrollTrigger. Drive both phase and camera from the same tween.
+    const animation = gsap.to(playhead, {
+      progress: 1,
+      ease: 'none',
+      onUpdate: () => {
+        scrollProgressRef.current = playhead.progress;
+        setAstronautPhase(phaseForProgress(playhead.progress));
+      },
+      scrollTrigger: {
+        trigger: scrollTrackRef.current,
+        start: 'top top',
+        end: 'bottom bottom',
+        scrub: 0.65,
+        invalidateOnRefresh: true,
       },
     });
-
-    // Signal the boot HUD that the page is actually live and scrollable.
-    // Hide once the R3F canvas has painted AND ScrollTrigger has done its
-    // first update (so scrolling is responsive), or after a short grace
-    // period at most — never make the visitor keep scrolling to clear it.
-    let rafId = 0;
-    let t0 = performance.now();
-    let scrollFired = false;
-    let canvasPainted = false;
-    const GRACE_MS = 1500;   // minimum time the HUD stays up even if scene is fast
-    const HARD_TIMEOUT_MS = 5000; // absolute fallback — never leave it stuck
-
-    const tryHide = () => {
-      const hud = document.getElementById('boot-hud');
-      if (!hud || getComputedStyle(hud).display === 'none') return;
-      const painted = canvasRef.current &&
-        canvasRef.current.getBoundingClientRect().width > 4 &&
-        canvasRef.current.getBoundingClientRect().height > 4;
-      canvasPainted = canvasPainted || painted;
-      const elapsed = performance.now() - t0;
-      const ready = (canvasPainted && scrollFired) || elapsed >= GRACE_MS;
-      if (ready) {
-        hud.style.transition = 'opacity 0.45s ease, visibility 0.45s ease';
-        hud.style.opacity = '0';
-        hud.style.visibility = 'hidden';
-        setTimeout(() => { hud.style.display = 'none'; }, 450);
-      }
-    };
-
-    // Re-check on each frame until hidden, plus a hard timeout so a slow
-    // first paint can't keep the HUD up indefinitely.
-    let hardTimer = setTimeout(tryHide, HARD_TIMEOUT_MS);
-    const frame = () => {
-      if (document.getElementById('boot-hud') &&
-          getComputedStyle(document.getElementById('boot-hud')).display !== 'none') {
-        tryHide();
-        if (canvasPainted || scrollFired || performance.now() - t0 >= HARD_TIMEOUT_MS) {
-          // conditions met or timeout hit; stop polling
-        } else {
-          rafId = requestAnimationFrame(frame);
-        }
-      }
-    };
-
-    rafId = requestAnimationFrame(frame);
+    const refresh = () => ScrollTrigger.refresh();
+    window.addEventListener('portfolio:revealed', refresh);
+    const raf = requestAnimationFrame(refresh);
     return () => {
-      if (rafId) cancelAnimationFrame(rafId);
-      clearTimeout(hardTimer);
-      trigger.kill();
+      cancelAnimationFrame(raf);
+      window.removeEventListener('portfolio:revealed', refresh);
+      animation.scrollTrigger?.kill();
+      animation.kill();
     };
-  }, []);
+  }, [ready]);
 
   return (
     <>
       <div className="fixed inset-0 z-0">
+        <SceneErrorBoundary>
         <Canvas
           ref={canvasRef}
-          camera={{ position: [0, 0, 6], fov: 45 }}
+          camera={{ position: [0, 0, 6], fov: 52 }}
           gl={{ antialias: true, alpha: true }}
           dpr={[1, 2]}
           style={{
@@ -287,12 +195,13 @@ const SpaceCanvas = () => {
             backgroundRepeat: 'no-repeat',
           }}
         >
+          <AssetProgress />
+          <Suspense fallback={null}>
           <ambientLight intensity={0.4} color="#4a5568" />
           <directionalLight position={[10, 10, 5]} intensity={1.0} color="#e2e8f0" />
           <pointLight position={[-10, -5, -10]} intensity={0.6} color="#3b82f6" distance={30} />
           <pointLight position={[10, 5, 10]} intensity={0.5} color="#8b5cf6" distance={25} />
 
-          <Suspense fallback={null}>
             {/* Restoring the real night-sky environment map — this had been
                 dropped somewhere along the way, leaving just flat black +
                 the procedural starfield with nothing for reflective
@@ -301,9 +210,7 @@ const SpaceCanvas = () => {
                 the actual starfield/black canvas; this only feeds lighting
                 and reflections. */}
             <Environment files="/models/night-sky.exr" background={false} />
-          </Suspense>
 
-          <Suspense fallback={null}>
             {/* Cubes were hidden during 'sleeping' to work around a white-glow
                 bloom issue — but that directly broke the continuity this
                 scene is supposed to have (nothing should pop in/out, the
@@ -312,18 +219,23 @@ const SpaceCanvas = () => {
                 intensity 1.5→0.8) to address the same glow issue at its
                 actual source, so hiding the cubes on top of that was very
                 likely an unnecessary second fix for the same problem.
-                Visible from sleeping onward now, continuously. */}
+                Hidden while the sleeping/waking close-up is active so the
+                corridor remains the visual focus; it appears in the idle
+                beat just before the first hop. */}
             <ControlCubeField
-              visible={true}
+              visible={
+                astronautPhase === 'idle'
+                || astronautPhase === 'hopping'
+                || astronautPhase === 'launching'
+              }
               platformsVisible={
-                astronautPhase === 'hopping'
+                astronautPhase === 'idle'
+                || astronautPhase === 'hopping'
                 || astronautPhase === 'launching'
               }
               firstPlatformOnly={false}
             />
-          </Suspense>
 
-          <Suspense fallback={null}>
             {/* The mech sleeps inside the middle of this ISS module scan,
                 replacing the earlier crash-site-ground approach. Visible
                 through the whole pre-flight stretch (continuous, not a
@@ -339,11 +251,9 @@ const SpaceCanvas = () => {
                 || astronautPhase === 'launching'
               }
             />
-          </Suspense>
 
           {/* CrashSite removed completely - alien_planet_lv-426.glb no longer used */}
 
-          <Suspense fallback={null}>
             {/* Was part of the old CrashSite.jsx, which got deleted entirely
                 along with the ground approach it was paired with — the
                 debris rendering itself was never actually broken, it just
@@ -359,31 +269,37 @@ const SpaceCanvas = () => {
                 || astronautPhase === 'launching'
               }
             />
-          </Suspense>
 
-          <Suspense fallback={null}>
-            {/* Moon only appears during landing/seated phases when mech watches planets */}
+            {/* The moon/planets enter only after the cube route and launch
+                beat. Their material fade begins with the flying phase so the
+                cube scene remains clean and the hand-off never flashes early. */}
             <group
               visible={
-                astronautPhase === 'landing'
+                astronautPhase === 'flying'
+                || astronautPhase === 'landing'
                 || astronautPhase === 'seated'
               }
             >
               <MoonScene
                 moonPosition={MOON_POSITION}
                 moonRadius={MOON_RADIUS}
-                planetsVisible={astronautPhase === 'landing' || astronautPhase === 'seated'}
+                planetsVisible={
+                  astronautPhase === 'flying'
+                  || astronautPhase === 'landing'
+                  || astronautPhase === 'seated'
+                }
+                progressRef={scrollProgressRef}
               />
             </group>
-          </Suspense>
 
-          <Suspense fallback={null}>
             <JourneyController progressRef={scrollProgressRef} phase={astronautPhase} />
-          </Suspense>
 
+          <SceneReady onReady={handleReady} />
           <OrbitControls
+            makeDefault
+            enabled={ready}
             enableRotate={true}
-            enableZoom={true}
+            enableZoom={false}
             enablePan={false}
             zoomSpeed={0.6}
             rotateSpeed={0.45}
@@ -403,22 +319,16 @@ const SpaceCanvas = () => {
               radius={0.3}
             />
           </EffectComposer>
+          </Suspense>
         </Canvas>
+        </SceneErrorBoundary>
 
-        <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 z-10 pointer-events-none">
-          <span className="px-4 py-2 text-cyan-400/70 text-[11px] font-syne font-bold uppercase tracking-[0.2em] border border-cyan-500/20 rounded-full">
-            {astronautPhase}
-          </span>
-        </div>
-        <div className="absolute bottom-20 left-1/2 -translate-x-1/2 z-10 pointer-events-none text-[10px] uppercase tracking-[0.24em] text-slate-300/60 whitespace-nowrap">
-          Drag to orbit · Scroll to journey
-        </div>
       </div>
 
       {/* Scroll track — drives the whole jump/fly/land/sit sequence. Tune
           this height to make the sequence feel faster or slower to scroll
           through. */}
-      <div ref={scrollTrackRef} style={{ height: '500vh' }} />
+      <div ref={scrollTrackRef} style={{ height: '520vh' }} />
     </>
   );
 };

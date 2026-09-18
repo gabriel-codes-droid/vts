@@ -99,7 +99,11 @@ const ControlCubeField = ({
             position={position}
             size={HOP_CUBE_SIZE}
             stationary
-            flattenY={index === 0 ? 0.7 : 1}
+            flattenY={1}
+            // The three traversal platforms are intentionally all AlphaUnit
+            // cubes so the mech has a consistent, greenish landing surface.
+            // The separate background field below remains mixed.
+            useSciFiCube={false}
             rotationSpeedX={0.08}
             rotationSpeedY={0.1}
           />

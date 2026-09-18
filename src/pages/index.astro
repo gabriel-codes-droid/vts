@@ -3,117 +3,47 @@ import SpaceCanvas from '../components/SpaceCanvas';
 import Layout from '../layouts/Layout.astro';
 ---
 
-<Layout title="Gabriel Mandrake | Full Stack Developer">
+<Layout title="3D Portfolio">
   <!-- Loading HUD: shown until the R3F scene is mounted and first render lands. -->
-  <div id="boot-hud" class="fixed inset-0 z-[9999] flex items-center justify-center bg-black overflow-hidden">
+  <div id="boot-hud" data-stage="loading" data-progress="0" aria-busy="true" class="fixed inset-0 z-[9999] flex items-center justify-center bg-black overflow-hidden">
     <div id="boot-canvas-wrap" class="absolute inset-0">
       <canvas id="boot-canvas" class="absolute inset-0 w-full h-full"></canvas>
     </div>
 
-    <div class="relative z-10 flex flex-col items-center gap-6 select-none">
-      <!-- Engineering override toggle -->
-      <button id="boot-toggle" type="button" aria-label="Toggle engineering drive override" class="absolute top-6 right-6 group">
-        <span class="block text-[10px] tracking-[0.3em] uppercase opacity-60 group-hover:opacity-100 transition-opacity">ENG OVERRIDE</span>
-        <span id="boot-toggle-led" class="block h-2 w-2 rounded-full bg-cyan-400 shadow-[0_0_8px_2px_theme('colors.cyan.400')] transition-all duration-200"></span>
-      </button>
-
-      <!-- Central HUD -->
-      <div id="boot-hud-core" class="relative w-[30vmin] h-[30vmin] max-w-[340px] max-h-[340px]">
-        <!-- Three nested rings -->
-        <svg class="absolute inset-0 w-full h-full" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-          <!-- Outer dashed ring: clockwise -->
-          <circle cx="50" cy="50" r="47" fill="none"
-                  stroke="currentColor" stroke-width="0.5"
-                  stroke-dasharray="2 4" class="ring-ring" />
-          <!-- Asymmetrical semi-open thick ring: counter-clockwise -->
-          <path class="ring-arc" d="M 50 10 A 40 40 0 1 1 10 50 L 10 50 A 40 40 0 0 1 50 10 Z" />
-          <!-- Continuous radar sweep -->
-          <g class="radar-group">
-            <line x1="50" y1="50" x2="50" y2="4" stroke="currentColor" stroke-width="0.6" stroke-linecap="round" opacity="0.9" />
-            <path d="M 50 50 L 50 4 A 46 46 0 0 1 87.8 18.7 Z" fill="currentColor" opacity="0.12" />
-          </g>
-        </svg>
-
-        <!-- Central neon core that tracks mouse with delay -->
-        <div id="boot-core" class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-3 h-3 rounded-full pointer-events-none" style="box-shadow: 0 0 14px 4px currentColor;"></div>
+    <div class="relative z-10 flex flex-col items-center gap-8 select-none">
+      <!-- Vertical rocket speed bar -->
+      <div class="relative w-[64px] h-[280px] md:w-[72px] md:h-[320px] flex flex-col items-center">
+        <div class="relative w-full h-full rounded-full overflow-hidden border border-white/10 shadow-[0_0_30px_8px_rgba(135,243,255,0.12)]">
+          <div class="absolute inset-x-0 top-0 h-1/2 bg-white/90"></div>
+          <div id="boot-bar-fill" class="absolute bottom-0 left-0 right-0 h-0 rounded-full bg-[#05070d] transition-[height] duration-200 ease-linear" style="height:0%"></div>
+          <div id="boot-bar-line" class="absolute left-0 right-0 h-px bg-white/40" style="bottom:50%"></div>
+        </div>
+        <div id="boot-rocket" class="absolute left-1/2 -translate-x-1/2 bottom-0 transition-[bottom] duration-200 ease-linear" style="bottom:0%">
+          <svg viewBox="0 0 48 96" class="w-7 h-14 md:w-8 md:h-16 drop-shadow-[0_0_10px_rgba(135,243,255,0.6)]" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M20 90 L24 96 L28 90 Z" fill="#8cf0ff" opacity="0.9"/>
+            <path d="M21 86 L24 92 L27 86 Z" fill="#fff" opacity="0.7"/>
+            <path d="M24 4 L16 40 L16 72 Q16 84 24 88 Q32 84 32 72 L32 4 Z" fill="#0a0303" stroke="#8cf0ff" stroke-width="1.2"/>
+            <circle cx="24" cy="28" r="3.5" fill="#8cf0ff" opacity="0.8"/>
+            <circle cx="24" cy="28" r="2" fill="#0a0303"/>
+            <path d="M16 72 L10 84 L16 80 Z" fill="#0a0303" stroke="#8cf0ff" stroke-width="0.8"/>
+            <path d="M32 72 L38 84 L32 80 Z" fill="#0a0303" stroke="#8cf0ff" stroke-width="0.8"/>
+          </svg>
+        </div>
       </div>
 
-      <!-- Telemetry text logs -->
-      <div class="fixed left-1/2 -translate-x-1/2 bottom-10 w-[80%] max-w-[520px] text-center">
+      <div class="text-center">
         <p id="boot-status-primary" class="font-mono text-[11px] uppercase tracking-[0.25em] text-cyan-300 drop-shadow-[0_0_6px_theme('colors.cyan.400')]">
           HYPERION DRIVE ACTIVE
         </p>
-        <p id="boot-status-secondary" class="font-mono text-[10px] tracking-[0.2em] mt-1 text-green-400/90 drop-shadow-[0_0_4px_theme('colors.green.400')]">
-          INITIALIZING QUANTUM TRANSIT … 0%
+        <p id="boot-status-secondary" class="font-mono text-[10px] tracking-[0.2em] mt-1 text-cyan-400/80 drop-shadow-[0_0_4px_theme('colors.cyan.400')]">
+          ASCENT … 0%
         </p>
-        <div class="mt-2 h-0.5 w-full max-w-[240px] mx-auto bg-white/8 rounded-full overflow-hidden">
-          <div id="boot-bar" class="h-full w-0 rounded-full transition-[width,background] duration-300"></div>
-        </div>
-        <pre id="boot-log" class="mt-4 font-mono text-[9px] leading-relaxed text-cyan-200/70 text-align-center whitespace-pre-wrap drop-shadow-[0_0_3px_theme('colors.cyan.300')]"></pre>
       </div>
     </div>
+    <button id="boot-retry" hidden class="absolute bottom-16 text-sm text-cyan-200 border border-cyan-400/40 rounded px-4 py-2">Reload scene</button>
   </div>
 
   <SpaceCanvas client:only="react" />
-
-  <div class="fixed inset-0 pointer-events-none z-20">
-    <div class="w-full h-screen flex flex-col justify-between p-6 md:p-12">
-      <div class="grid grid-cols-12 gap-6 md:gap-12">
-        <div class="col-span-4 md:col-span-3 border-l border-white/10 pl-4 md:pl-6">
-          <p class="font-syne font-bold text-[10px] md:text-xs uppercase tracking-[0.2em] text-cyan-400/60 mb-3">
-            Portfolio
-          </p>
-          <h1 class="font-syne font-extrabold text-2xl md:text-4xl lg:text-5xl uppercase tracking-tight leading-[0.9] text-white">
-            Gabriel<br />Mandrake
-          </h1>
-        </div>
-
-        <div class="col-span-4 md:col-span-6 flex items-center justify-center">
-        </div>
-
-        <div class="col-span-4 md:col-span-3 border-r border-white/10 pr-4 md:pr-6 text-right">
-          <p class="font-syne font-bold text-[10px] md:text-xs uppercase tracking-[0.2em] text-cyan-400/60 mb-3">
-            Status
-          </p>
-          <p class="font-inter font-medium text-xs md:text-sm text-white/90">
-            Available for work
-          </p>
-          <p class="font-inter font-light text-[10px] md:text-xs text-gray-500 mt-1">
-            2024 — Present
-          </p>
-        </div>
-      </div>
-
-      <div class="grid grid-cols-12 gap-6 md:gap-12 mt-auto">
-        <div class="col-span-4 md:col-span-3 border-l border-white/10 pl-4 md:pl-6">
-          <p class="font-syne font-bold text-[10px] md:text-xs uppercase tracking-[0.2em] text-cyan-400/60 mb-3">
-            Expertise
-          </p>
-          <div class="space-y-0.5">
-            <p class="font-inter font-light text-[10px] md:text-xs text-gray-400">React Three Fiber</p>
-            <p class="font-inter font-light text-[10px] md:text-xs text-gray-400">Three.js</p>
-            <p class="font-inter font-light text-[10px] md:text-xs text-gray-400">Astro</p>
-            <p class="font-inter font-light text-[10px] md:text-xs text-gray-400">GSAP</p>
-          </div>
-        </div>
-
-        <div class="col-span-4 md:col-span-6 flex items-center justify-center">
-        </div>
-
-        <div class="col-span-4 md:col-span-3 border-r border-white/10 pr-4 md:pr-6 text-right">
-          <p class="font-syne font-bold text-[10px] md:text-xs uppercase tracking-[0.2em] text-cyan-400/60 mb-3">
-            Location
-          </p>
-          <p class="font-inter font-medium text-xs md:text-sm text-white/90">
-            Worldwide
-          </p>
-          <p class="font-inter font-light text-[10px] md:text-xs text-gray-500 mt-1">
-            Remote Available
-          </p>
-        </div>
-      </div>
-    </div>
-  </div>
 </Layout>
 
 <script is:inline>
@@ -123,46 +53,34 @@ import Layout from '../layouts/Layout.astro';
   var WRAP = document.getElementById('boot-canvas-wrap');
   var CANVAS = document.getElementById('boot-canvas');
   var CTX = CANVAS.getContext('2d');
-  var CORE = document.getElementById('boot-core');
-  var LOG = document.getElementById('boot-log');
-  var BAR = document.getElementById('boot-bar');
+  var ROCKET = document.getElementById('boot-rocket');
+  var BAR_FILL = document.getElementById('boot-bar-fill');
+  var BAR_LINE = document.getElementById('boot-bar-line');
   var STATUS_SEC = document.getElementById('boot-status-secondary');
-  var TOGGLE = document.getElementById('boot-toggle');
-  var TOGGLE_LED = document.getElementById('boot-toggle-led');
   var ROOT = document.getElementById('boot-hud');
+  var RETRY = document.getElementById('boot-retry');
+  var finished = false;
+  var rafId = 0;
+  var previousOverflow = document.documentElement.style.overflow;
+  document.documentElement.style.overflow = 'hidden';
+  window.scrollTo(0, 0);
+  RETRY.addEventListener('click', function () { window.location.reload(); });
 
   var W = 0, H = 0, DPR = Math.min(window.devicePixelRatio || 1, 2);
   var STATE = {
-    mode: 'cyan',     // 'cyan' | 'red'
-    speed: 1,         // multiplier
-    engaged: false,
-    px: 50, py: 50,   // raw mouse (percent)
-    tx: 50, ty: 50,   // smoothed target (percent)
+    speed: 1,         // multiplier — ramps as gauge fills, stars accelerate
+    px: 50, py: 50,
     t: 0,
-    logLines: [],
     gaugeT: 0,
   };
 
   // Color tokens
   var COLORS = {
-    cyan: {
-      bg: '#05070d',
-      cyan: 'rgba(135,243,255,1)',
-      dimCyan: 'rgba(135,243,255,0.35)',
-      core: '#7fffed',
-      warm: 'rgba(120,220,255,0.9)',
-      grid: 'rgba(135,243,255,0.05)',
-      log: '#8cf0ff',
-    },
-    red: {
-      bg: '#0a0303',
-      cyan: 'rgba(255,90,90,1)',
-      dimCyan: 'rgba(255,90,90,0.35)',
-      core: '#ff5a5a',
-      warm: 'rgba(255,140,140,0.9)',
-      grid: 'rgba(255,90,90,0.05)',
-      log: '#ffb0b0',
-    }
+    bg: '#05070d',
+    cyan: 'rgba(135,243,255,1)',
+    dimCyan: 'rgba(135,243,255,0.35)',
+    warm: 'rgba(120,220,255,0.9)',
+    grid: 'rgba(135,243,255,0.05)',
   };
 
   function hexToRgb(hex) {
@@ -175,10 +93,6 @@ import Layout from '../layouts/Layout.astro';
   function lerp(a, b, t) { return a + (b - a) * t; }
   function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
   function rand(min, max) { return min + Math.random() * (max - min); }
-
-  function pick(c) {
-    return c === 'cyan' ? COLORS.cyan : COLORS.red;
-  }
 
   // Starfield: 3 depth layers with perspective anchor, accelerating over time.
   var STARS = { near: [], mid: [], far: [], all: [] };
@@ -265,12 +179,12 @@ import Layout from '../layouts/Layout.astro';
 
   function drawStars(state, t, colors) {
     var cx = W / 2, cy = H / 2;
-    var accel = 1 + 0.6 * state.speed;
-    var warp = state.engaged ? Math.min(8, 1 + 7 * state.speed) : 1;
+    var accel = 1 + 0.8 * state.speed;
+    var speedMul = Math.min(18, 1 + 17 * state.speed);
 
     STARS.all.forEach(function (s) {
-      var sp = s.baseSpeed * accel * warp * (0.8 + 0.4 * Math.sin(state.t * 0.5 + s.phase));
-      s.z += sp * 0.004;
+      var sp = s.baseSpeed * accel * speedMul * (0.7 + 0.5 * Math.sin(state.t * 0.6 + s.phase));
+      s.z += sp * 0.006;
       if (s.z > 1.2) {
         s.z = 0.02;
         s.x = rand(-1, 1);
@@ -280,35 +194,31 @@ import Layout from '../layouts/Layout.astro';
       var perspective = 1 / Math.max(0.05, s.z);
       var px = cx + s.x * perspective * (W * 0.5);
       var py = cy + s.y * perspective * (H * 0.5);
+      // Clip stars to the lower half (the dark traveled portion of the capsule)
+      if (py < cy - 2) return;
       var size = s.size * (0.5 + 0.5 * perspective);
 
-      // Tail (velocity stretch)
-      var tailLen = Math.min(18, Math.floor(6 + 12 * state.speed * (state.engaged ? 2.2 : 1)));
+      var tailLen = Math.min(20, Math.floor(6 + 14 * state.speed * (state.speed > 3 ? 2.4 : 1)));
       s.tail.push({ x: px, y: py, life: 1 });
       if (s.tail.length > tailLen) s.tail.shift();
-      s.tail.forEach(function (p, i) {
-        p.life -= 1 / tailLen;
-      });
+      s.tail.forEach(function (p, i) { p.life -= 1 / tailLen; });
       s.tail = s.tail.filter(function (p) { return p.life > 0; });
 
-      var alpha = clamp((1 - s.z) * 0.9, 0.15, 0.95);
-      var col = state.engaged ? colors.cyan : colors.dimCyan;
+      var alpha = clamp((1 - s.z) * 0.95, 0.2, 0.98);
+      var col = colors.cyan;
       CTX.beginPath();
       CTX.arc(px, py, Math.max(0.3, size), 0, Math.PI * 2);
       CTX.fillStyle = col.replace('1)', alpha + ')');
       CTX.fill();
 
-      // Draw tail as fading line
       if (s.tail.length > 1) {
         CTX.save();
-        CTX.globalAlpha = alpha * 0.5 * (state.engaged ? 0.9 : 0.4);
+        CTX.globalAlpha = alpha * 0.55 * (state.speed > 3 ? 0.95 : 0.45);
         CTX.strokeStyle = col;
         CTX.lineWidth = Math.max(0.5, size * 0.6);
         CTX.beginPath();
         CTX.moveTo(s.tail[0].x, s.tail[0].y);
-        for (var i = 1; i < s.tail.length; i++) {
-          CTX.lineTo(s.tail[i].x, s.tail[i].y);
-        }
+        for (var i = 1; i < s.tail.length; i++) CTX.lineTo(s.tail[i].x, s.tail[i].y);
         CTX.lineTo(px, py);
         CTX.stroke();
         CTX.restore();
@@ -316,233 +226,66 @@ import Layout from '../layouts/Layout.astro';
     });
   }
 
-  function drawHUD(colors, t) {
-    var cx = W / 2, cy = H / 2;
-    var size = Math.min(W, H) * 0.32;
-    var r = size / 2;
-
-    CTX.save();
-    CTX.translate(cx, cy);
-
-    // Outer dashed ring spinning clockwise
-    CTX.save();
-    CTX.rotate(t * 0.15);
-    CTX.strokeStyle = colors.cyan;
-    CTX.globalAlpha = 0.5 + 0.3 * Math.sin(t * 0.5);
-    CTX.lineWidth = Math.max(1, r * 0.02);
-    CTX.setLineDash([4, 6]);
-    CTX.beginPath();
-    CTX.arc(0, 0, r * 0.92, 0, Math.PI * 2);
-    CTX.stroke();
-    CTX.setLineDash([]);
-    CTX.restore();
-
-    // Asymmetrical semi-open thick ring spinning counter-clockwise
-    // We'll draw a thick arc that covers most of the circle but leaves a gap,
-    // plus a thinner fill to make it "semi-open" looking.
-    CTX.save();
-    CTX.rotate(-t * 0.22);
-    var thickR = r * 0.78;
-    var thickW = Math.max(3, r * 0.07);
-    var startAngle = -Math.PI * 0.75;
-    var endAngle = Math.PI * 0.75;
-    CTX.beginPath();
-    CTX.arc(0, 0, thickR, startAngle, endAngle);
-    CTX.strokeStyle = colors.cyan;
-    CTX.globalAlpha = 0.85;
-    CTX.lineWidth = thickW;
-    CTX.lineCap = 'round';
-    CTX.stroke();
-
-    // Inner glow for the arc
-    CTX.globalAlpha = 0.25;
-    CTX.beginPath();
-    CTX.arc(0, 0, thickR, startAngle, endAngle);
-    CTX.strokeStyle = colors.warm;
-    CTX.lineWidth = thickW * 2.5;
-    CTX.stroke();
-    CTX.restore();
-
-    // Continuous radar sweep (rotating line + arc)
-    CTX.save();
-    CTX.rotate(t * 0.6);
-    // Sweep line
-    CTX.beginPath();
-    CTX.moveTo(0, 0);
-    CTX.lineTo(0, -r * 0.95);
-    CTX.strokeStyle = colors.cyan;
-    CTX.globalAlpha = 0.9;
-    CTX.lineWidth = Math.max(1, r * 0.015);
-    CTX.lineCap = 'round';
-    CTX.stroke();
-    // Sweep arc (triangular wedge)
-    CTX.beginPath();
-    CTX.moveTo(0, 0);
-    CTX.arc(0, 0, r * 0.95, -0.35, 0.35);
-    CTX.closePath();
-    CTX.fillStyle = colors.cyan;
-    CTX.globalAlpha = 0.1;
-    CTX.fill();
-    CTX.restore();
-
-    // Subtle center crosshair
-    CTX.strokeStyle = colors.dimCyan;
-    CTX.globalAlpha = 0.3;
-    CTX.lineWidth = 0.5;
-    CTX.beginPath();
-    CTX.moveTo(-r * 0.15, 0); CTX.lineTo(r * 0.15, 0);
-    CTX.moveTo(0, -r * 0.15); CTX.lineTo(0, r * 0.15);
-    CTX.stroke();
-
-    CTX.restore();
-  }
-
-  var diagVars = [
-    { label: 'VTG', unit: 'm/s', fn: function () { return (Math.floor(1200 + 800 * Math.sin(STATE.t * 0.3) + rand(-15, 15))).toFixed(0); } },
-    { label: 'MXG', unit: 'nodes', fn: function () { return Math.floor(1240 + 60 * Math.sin(STATE.t * 0.17 + 1) + rand(-8, 8)); } },
-    { label: 'QTX', unit: '%', fn: function () { return (92 + 6 * Math.sin(STATE.t * 0.23 + 2) + rand(-1, 1)).toFixed(1); } },
-    { label: 'PWR', unit: 'MW', fn: function () { return (41.2 + 2.1 * Math.sin(STATE.t * 0.19 + 3) + rand(-0.3, 0.3)).toFixed(1); } },
-    { label: 'NAV', unit: 'lock', fn: function () { return (Math.random() > 0.15) ? 'STABLE' : 'ERR'; } },
-    { label: 'DRV', unit: 'thr', fn: function () { return (78 + 12 * Math.sin(STATE.t * 0.13 + 4) + rand(-2, 2)).toFixed(0); } },
-    { label: 'TMP', unit: 'K', fn: function () { return (290 + 8 * Math.sin(STATE.t * 0.27 + 5) + rand(-2, 2)).toFixed(0); } },
-    { label: 'VCT', unit: 'kv', fn: function () { return (1420 + 220 * Math.sin(STATE.t * 0.31 + 6) + rand(-20, 20)).toFixed(0); } },
-  ];
-
-  function pushLog(colors) {
-    var line = '';
-    var parts = [];
-    for (var i = 0; i < diagVars.length; i++) {
-      var v = diagVars[i];
-      var val = v.fn();
-      parts.push(v.label + ': ' + val + ' ' + v.unit);
+  function updateGauge() {
+    var target = Number(ROOT.dataset.progress || 0);
+    STATE.gaugeT = Math.max(STATE.gaugeT, target);
+    var pct = STATE.gaugeT * 100;
+    // Dark fill grows from bottom (0%) up to the midpoint (50%), then crosses
+    // into the white half — the rocket keeps climbing past the line to 100%.
+    var fillPct = Math.min(100, pct * 1.2);
+    BAR_FILL.style.height = fillPct + '%';
+    // Rocket position: 0% at bottom, 100% at top of the bar.
+    var rocketPct = Math.min(100, Math.max(0, pct * 100));
+    ROCKET.style.bottom = rocketPct + '%';
+    // White line stays at the 50% mark (the capsule midpoint).
+    BAR_LINE.style.bottom = '50%';
+    // Speed ramps as progress climbs.
+    STATE.speed = 0.4 + 3.2 * STATE.gaugeT;
+    STATUS_SEC.textContent = 'ASCENT … ' + Math.floor(rocketPct) + '%';
+    if (ROOT.dataset.stage === 'error') {
+      RETRY.hidden = false;
+      RETRY.title = ROOT.dataset.error;
+      ROOT.setAttribute('aria-busy', 'false');
     }
-    line = parts.join('   ·   ');
-    STATE.logLines.push(line);
-    if (STATE.logLines.length > 6) STATE.logLines.shift();
-    LOG.textContent = STATE.logLines.join('\n');
-  }
-
-  function updateGauge(delta, colors) {
-    STATE.gaugeT += delta * (0.04 + 0.06 * STATE.speed);
-    var pct = clamp(STATE.gaugeT, 0, 1);
-    var showPct = Math.floor(pct * 100);
-    BAR.style.width = (pct * 100) + '%';
-    if (STATE.mode === 'red') {
-      BAR.style.background = '#ff5a5a';
-    } else {
-      BAR.style.background = '#8cf0ff';
-    }
-    STATUS_SEC.textContent = 'INITIALIZING QUANTUM TRANSIT \u00a0\u00a0' + showPct + '%';
-
-    // Once full, "complete" by hiding the HUD after a short hold.
-    if (pct >= 1) {
-      completeBoot();
-    }
+    if (ROOT.dataset.stage === 'ready') completeBoot();
   }
 
   function completeBoot() {
-    if (document.getElementById('boot-hud').style.display === 'none') return;
-    document.getElementById('boot-hud').style.transition = 'opacity 0.5s ease, visibility 0.5s ease';
-    document.getElementById('boot-hud').style.opacity = '0';
-    document.getElementById('boot-hud').style.visibility = 'hidden';
-    // Also hide the text shell via the inline <style>
-    var style = document.getElementById('boot-style');
-    if (style) style.textContent += '\n#boot-hud { display: none !important; }';
+    if (finished) return;
+    finished = true;
+    ROOT.setAttribute('aria-busy', 'false');
+    ROOT.style.transition = 'opacity 0.5s ease';
+    ROOT.style.opacity = '0';
+    cancelAnimationFrame(rafId);
+    window.removeEventListener('resize', resize);
+    window.removeEventListener('portfolio:boot', updateGauge);
+    setTimeout(function () {
+      ROOT.style.display = 'none';
+      document.documentElement.style.overflow = previousOverflow;
+      window.scrollTo(0, 0);
+      window.dispatchEvent(new Event('portfolio:revealed'));
+    }, 500);
   }
-
-  // R3F scene ready signal: the canvas becomes visible/non-empty
-  var R3F_READY_CHECK_INTERVAL = null;
-  function watchR3FReady() {
-    if (R3F_READY_CHECK_INTERVAL) return;
-    R3F_READY_CHECK_INTERVAL = setInterval(function () {
-      if (STATE.gaugeT >= 1) { clearInterval(R3F_READY_CHECK_INTERVAL); return; }
-      var r3f = document.querySelector('canvas[class*="r3f"], canvas[class*="Canvas"], canvas[data-r3f], canvas');
-      // Crude heuristic: if any canvas other than ours has non-zero size, the scene likely painted.
-      var canvases = document.querySelectorAll('canvas');
-      for (var i = 0; i < canvases.length; i++) {
-        var c = canvases[i];
-        if (c === CANVAS) continue;
-        var rect = c.getBoundingClientRect();
-        if (rect.width > 40 && rect.height > 40) {
-          completeBoot();
-          clearInterval(R3F_READY_CHECK_INTERVAL);
-          return;
-        }
-      }
-    }, 250);
-  }
-
-  function setMode(mode) {
-    STATE.mode = mode;
-    if (mode === 'red') {
-      ROOT.style.color = COLORS.red.cyan;
-      TOGGLE_LED.style.background = '#ff5a5a';
-      TOGGLE_LED.style.boxShadow = '0 0 8px 2px #ff5a5a';
-    } else {
-      ROOT.style.color = COLORS.cyan.cyan;
-      TOGGLE_LED.style.background = '#7fffed';
-      TOGGLE_LED.style.boxShadow = '0 0 8px 2px #7fffed';
-    }
-  }
-
-  TOGGLE.addEventListener('click', function () {
-    STATE.engaged = !STATE.engaged;
-    if (STATE.engaged) {
-      STATE.speed = Math.min(3, STATE.speed + 0.4);
-      setMode('red');
-    } else {
-      STATE.speed = Math.max(1, STATE.speed - 0.4);
-      setMode('cyan');
-    }
-  });
 
   function loop(t) {
+    if (finished) return;
     STATE.t = t / 1000;
 
-    // Smooth mouse tracking with offset delay
-    STATE.tx = lerp(STATE.tx, STATE.px, 0.08);
-    STATE.ty = lerp(STATE.ty, STATE.py, 0.08);
-    var cx = W / 2, cy = H / 2;
-    var offX = (STATE.tx - 50) / 50 * Math.min(W, H) * 0.06;
-    var offY = (STATE.ty - 50) / 50 * Math.min(W, H) * 0.06;
-    CORE.style.transform = 'translate(calc(-50% + ' + offX + 'px), calc(-50% + ' + offY + 'px))';
-
-    var colors = pick(STATE.mode);
+    var colors = COLORS;
     drawBackground(colors, STATE.t);
-    drawStars({ speed: STATE.speed, engaged: STATE.engaged, t: STATE.t }, STATE.t, colors);
-    drawHUD(colors, STATE.t);
-    pushLog(colors);
-    updateGauge(0.016, colors);
+    drawStars({ speed: STATE.speed, t: STATE.t }, STATE.t, colors);
+    updateGauge();
 
-    requestAnimationFrame(loop);
+    if (!finished) rafId = requestAnimationFrame(loop);
   }
 
   function init() {
     initStars();
     resize();
-    setMode('cyan');
     window.addEventListener('resize', resize);
-    window.addEventListener('mousemove', function (e) {
-      var rect = WRAP.getBoundingClientRect();
-      STATE.px = clamp(((e.clientX - rect.left) / rect.width) * 100, 0, 100);
-      STATE.py = clamp(((e.clientY - rect.top) / rect.height) * 100, 0, 100);
-    });
-    window.addEventListener('touchmove', function (e) {
-      if (!e.touches || !e.touches.length) return;
-      var t = e.touches[0];
-      var rect = WRAP.getBoundingClientRect();
-      STATE.px = clamp(((t.clientX - rect.left) / rect.width) * 100, 0, 100);
-      STATE.py = clamp(((t.clientY - rect.top) / rect.height) * 100, 0, 100);
-    }, { passive: true });
-    // Also track mouse position relative to the HUD core for the offset delay
-    document.addEventListener('mousemove', function (e) {
-      var rect = WRAP.getBoundingClientRect();
-      STATE.px = clamp(((e.clientX - rect.left) / rect.width) * 100, 0, 100);
-      STATE.py = clamp(((e.clientY - rect.top) / rect.height) * 100, 0, 100);
-    });
-
-    requestAnimationFrame(loop);
-    watchR3FReady();
+    window.addEventListener('portfolio:boot', updateGauge);
+    updateGauge(); // also consume readiness if hydration finished first
+    if (!finished) rafId = requestAnimationFrame(loop);
   }
 
   if (document.readyState === 'loading') {
@@ -558,21 +301,5 @@ import Layout from '../layouts/Layout.astro';
     display: flex;
     align-items: center;
     justify-content: center;
-  }
-
-  .ring-ring {
-    color: inherit;
-    transition: color 0.25s ease;
-  }
-  .ring-arc {
-    fill: none;
-    stroke: currentColor;
-    stroke-width: 0.6;
-    stroke-dasharray: 6 3 1 3;
-    stroke-linecap: round;
-    transition: color 0.25s ease;
-  }
-  .radar-group {
-    transition: color 0.25s ease;
   }
 </style>
