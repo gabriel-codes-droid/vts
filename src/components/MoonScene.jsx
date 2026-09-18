@@ -1,8 +1,37 @@
 import { useRef, useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
-import { useGLTF, Html } from '@react-three/drei';
+import { useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
+import { isSceneVisible } from './sceneActivity';
 import { PLANET_ROW_SPACING, PLANET_ROW_Y, PLANET_ROW_Z } from './sceneConstants';
+import { smooth } from './journey';
+
+// Fade in across the first part of the flying phase. The outer scene gate in
+// SpaceCanvas keeps the moon/planets completely absent during sleeping,
+// waking, idle, and hopping, so the cube route stays visually uncluttered.
+const FADE_START = 0.54;
+const FADE_END = 0.62;
+function fadeOpacityFromProgress(progress) {
+  return smooth((progress - FADE_START) / (FADE_END - FADE_START));
+}
+
+// Applies a fade opacity to every material on an already-forceSolid()'d
+// object. transparent is only enabled while actually mid-fade; once fully
+// opaque it's locked back to the same solid/opaque state forceSolid()
+// established, so nothing here weakens the no-phase-through guarantee once
+// the fade completes.
+function applyFadeOpacity(object, opacity) {
+  object.traverse((child) => {
+    if (!child.isMesh || !child.material) return;
+    const mats = Array.isArray(child.material) ? child.material : [child.material];
+    for (const m of mats) {
+      const fading = opacity < 0.999;
+      m.transparent = fading;
+      m.opacity = fading ? opacity : 1;
+      m.depthWrite = !fading;
+    }
+  });
+}
 
 // Force every material under a loaded GLB to real opaque PBR so nothing
 // reads as ghostly or phasable.
@@ -30,7 +59,7 @@ function forceSolid(object) {
 
 // Real moon model, auto-scaled to a known radius so MOON_SEAT_POSITION
 // always lands exactly on its actual surface.
-export function MoonModel({ position, targetRadius }) {
+export function MoonModel({ position, targetRadius, progressRef }) {
   const { scene } = useGLTF('/models/moon.glb');
   const cloned = useMemo(() => {
     const c = scene.clone(true);
@@ -55,8 +84,12 @@ export function MoonModel({ position, targetRadius }) {
   }, [cloned, scale]);
 
   const ref = useRef();
+  // The moon is the landing platform. Keep its measured contact point fixed;
+  // the four project planets retain their own independent rotation below.
+
   useFrame(() => {
-    if (ref.current) ref.current.rotation.y += 0.0006;
+    if (!ref.current || !progressRef) return;
+    applyFadeOpacity(ref.current, fadeOpacityFromProgress(progressRef.current));
   });
 
   return (
@@ -68,7 +101,7 @@ export function MoonModel({ position, targetRadius }) {
 
 // Real GLB planet — loads the actual model from /models and auto-scales it
 // to the requested size so all planets in the row read consistently.
-function PlanetGLB({ position, size, color, name, modelPath }) {
+function PlanetGLB({ position, size, color, name, modelPath, progressRef }) {
   const { scene } = useGLTF(modelPath);
   const groupRef = useRef();
 
@@ -87,32 +120,17 @@ function PlanetGLB({ position, size, color, name, modelPath }) {
   }, [scene, size]);
 
   useFrame((state) => {
-    if (groupRef.current) groupRef.current.rotation.y += 0.003;
+    if (isSceneVisible(groupRef.current)) groupRef.current.rotation.y += 0.003;
+    if (groupRef.current && progressRef) {
+      applyFadeOpacity(groupRef.current, fadeOpacityFromProgress(progressRef.current));
+    }
   });
 
   return (
     <group ref={groupRef} position={position}>
       <primitive object={scaled} />
       <pointLight color={color} intensity={0.7} distance={size * 10} />
-      <Html position={[0, size + 0.35, 0]} center distanceFactor={14} zIndexRange={[5, 0]}>
-        <div
-          style={{
-            fontSize: 9,
-            fontWeight: 700,
-            letterSpacing: '0.1em',
-            textTransform: 'uppercase',
-            color: '#e2e8f0',
-            background: 'rgba(0,0,0,0.75)',
-            padding: '3px 8px',
-            borderRadius: 999,
-            whiteSpace: 'nowrap',
-            border: `1px solid ${color}55`,
-            backdropFilter: 'blur(6px)',
-          }}
-        >
-          {name}
-        </div>
-      </Html>
+
     </group>
   );
 }
@@ -146,21 +164,16 @@ const PROJECTS = [
   },
 ];
 
-export default function MoonScene({ moonPosition, moonRadius, planetsVisible = true }) {
+export default function MoonScene({ moonPosition, moonRadius, planetsVisible = true, progressRef }) {
   const spacing = PLANET_ROW_SPACING;
   const planetY = PLANET_ROW_Y;
 
-  // Preload all planet + moon models so they pop in instantly.
-  useGLTF.preload('/models/moon.glb');
-  useGLTF.preload('/models/alien_planet.glb');
-  useGLTF.preload('/models/lava_planet.glb');
-  useGLTF.preload('/models/little_planet_earth.glb');
-  useGLTF.preload('/models/planet_earth.glb');
 
   return (
     <group>
-      <MoonModel position={moonPosition} targetRadius={moonRadius} />
-      {planetsVisible && PROJECTS.map((project, i) => (
+      <MoonModel position={moonPosition} targetRadius={moonRadius} progressRef={progressRef} />
+      <group visible={planetsVisible}>
+      {PROJECTS.map((project, i) => (
         <PlanetGLB
           key={project.name}
           position={[
@@ -172,8 +185,14 @@ export default function MoonScene({ moonPosition, moonRadius, planetsVisible = t
           color={project.color}
           name={project.name}
           modelPath={project.modelPath}
+          progressRef={progressRef}
         />
       ))}
+      </group>
     </group>
   );
 }
+
+// Start downloads once, without repeating preload calls on phase changes.
+useGLTF.preload('/models/moon.glb');
+for (const project of PROJECTS) useGLTF.preload(project.modelPath);
