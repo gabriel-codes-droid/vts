@@ -4,37 +4,11 @@ import { useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
 import { isSceneVisible } from './sceneActivity';
 import { PLANET_ROW_SPACING, PLANET_ROW_Y, PLANET_ROW_Z } from './sceneConstants';
-import { smooth } from './journey';
-
-// Fade in across the first part of the flying phase. The outer scene gate in
-// SpaceCanvas keeps the moon/planets completely absent during sleeping,
-// waking, idle, and hopping, so the cube route stays visually uncluttered.
-const FADE_START = 0.54;
-const FADE_END = 0.62;
-function fadeOpacityFromProgress(progress) {
-  return smooth((progress - FADE_START) / (FADE_END - FADE_START));
-}
-
-// Applies a fade opacity to every material on an already-forceSolid()'d
-// object. transparent is only enabled while actually mid-fade; once fully
-// opaque it's locked back to the same solid/opaque state forceSolid()
-// established, so nothing here weakens the no-phase-through guarantee once
-// the fade completes.
-function applyFadeOpacity(object, opacity) {
-  object.traverse((child) => {
-    if (!child.isMesh || !child.material) return;
-    const mats = Array.isArray(child.material) ? child.material : [child.material];
-    for (const m of mats) {
-      const fading = opacity < 0.999;
-      m.transparent = fading;
-      m.opacity = fading ? opacity : 1;
-      m.depthWrite = !fading;
-    }
-  });
-}
 
 // Force every material under a loaded GLB to real opaque PBR so nothing
-// reads as ghostly or phasable.
+// reads as ghostly or phasable. Keeping these surfaces opaque is important:
+// the star image is the canvas backdrop, so a transparent planet would reveal
+// those pixels through its silhouette and make stars look painted on it.
 function forceSolid(object) {
   object.traverse((child) => {
     if (!child.isMesh || !child.material) return;
@@ -44,6 +18,8 @@ function forceSolid(object) {
       m.opacity = 1;
       m.depthWrite = true;
       m.depthTest = true;
+      m.alphaTest = 0;
+      m.blending = THREE.NormalBlending;
       m.side = THREE.FrontSide;
       if (m.clearcoat !== undefined) { m.clearcoat = 0; m.clearcoatRoughness = 1; }
       if (m.clearcoatMap) { m.clearcoatMap = undefined; }
@@ -87,11 +63,6 @@ export function MoonModel({ position, targetRadius, progressRef }) {
   // The moon is the landing platform. Keep its measured contact point fixed;
   // the four project planets retain their own independent rotation below.
 
-  useFrame(() => {
-    if (!ref.current || !progressRef) return;
-    applyFadeOpacity(ref.current, fadeOpacityFromProgress(progressRef.current));
-  });
-
   return (
     <group ref={ref} position={position} scale={scale}>
       <primitive object={centeredMoon} />
@@ -121,9 +92,6 @@ function PlanetGLB({ position, size, color, name, modelPath, progressRef }) {
 
   useFrame((state) => {
     if (isSceneVisible(groupRef.current)) groupRef.current.rotation.y += 0.003;
-    if (groupRef.current && progressRef) {
-      applyFadeOpacity(groupRef.current, fadeOpacityFromProgress(progressRef.current));
-    }
   });
 
   return (
@@ -142,25 +110,25 @@ const PROJECTS = [
     name: 'Healthcare',
     color: '#00d4ff',
     modelPath: '/models/alien_planet.glb',
-    size: 0.9,
+    size: 1.08,
   },
   {
     name: 'DineConnect',
     color: '#ff6b35',
     modelPath: '/models/lava_planet.glb',
-    size: 1.0,
+    size: 1.18,
   },
   {
     name: 'Kartz',
     color: '#a855f7',
     modelPath: '/models/little_planet_earth.glb',
-    size: 0.9,
+    size: 1.08,
   },
   {
     name: 'Dashboard',
     color: '#06b6d4',
     modelPath: '/models/planet_earth.glb',
-    size: 0.95,
+    size: 1.12,
   },
 ];
 

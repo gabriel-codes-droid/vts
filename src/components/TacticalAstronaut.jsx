@@ -13,11 +13,9 @@ import {
 } from './sceneConstants';
 
 const ASTRONAUT_MODEL = '/models/bot_mecha_warrior.glb';
-const JETPACK_MODEL = '/models/jetpack/Jetpack.glb';
 const CHARACTER_SCALE = 0.68;
 
 useGLTF.preload(ASTRONAUT_MODEL);
-useGLTF.preload(JETPACK_MODEL);
 useFBX.preload('/models/idle.fbx');
 useFBX.preload('/models/stroke_shaking_head.fbx');
 useFBX.preload('/models/waking.fbx');
@@ -44,6 +42,39 @@ const BONE_MAP = {
 };
 
 const BONE_ENTRIES = Object.entries(BONE_MAP);
+
+// Sci-fi thruster flame for each boot, replacing the jetpack. Two stacked
+// additive cones (a bright core + a softer outer glow) pointed away from the
+// foot's sole like exhaust. Built once per foot and parented directly to the
+// foot bone so it automatically follows the retargeted animation every
+// frame without any manual position updates.
+function createBootFlame() {
+  const group = new THREE.Group();
+  const core = new THREE.Mesh(
+    new THREE.ConeGeometry(0.05, 0.3, 8, 1, true),
+    new THREE.MeshBasicMaterial({
+      color: '#dff4ff', transparent: true, opacity: 0.95,
+      blending: THREE.AdditiveBlending, toneMapped: false, depthWrite: false,
+    }),
+  );
+  const outer = new THREE.Mesh(
+    new THREE.ConeGeometry(0.085, 0.46, 8, 1, true),
+    new THREE.MeshBasicMaterial({
+      color: '#4fb3ff', transparent: true, opacity: 0.5,
+      blending: THREE.AdditiveBlending, toneMapped: false, depthWrite: false,
+    }),
+  );
+  // Cone apex points up by default; flip so the apex points down/away from
+  // the sole, like exhaust trailing behind the foot.
+  core.rotation.x = Math.PI;
+  outer.rotation.x = Math.PI;
+  core.position.y = -0.16;
+  outer.position.y = -0.24;
+  group.add(outer, core);
+  group.name = 'bootFlame';
+  group.visible = false;
+  return group;
+}
 
 // The bot mecha's bind-pose geometry reaches the local y=0 plane, so its
 // group origin can be placed directly on the shared cube-top waypoint.
@@ -96,7 +127,6 @@ export default function TacticalAstronaut({ phase, position = [0, 0, 0], scale =
     });
     return clone;
   }, [scene]);
-  const jetpackClone = useMemo(() => jetpack.clone(true), [jetpack]);
 
   // These are the exact project copies of Idle.fbx, Mutant Jumping.fbx,
   // Flying.fbx, Landing.fbx, and Sitting Idle.fbx from the 3d Models folder.
@@ -242,6 +272,22 @@ export default function TacticalAstronaut({ phase, position = [0, 0, 0], scale =
     if (!group.current) return;
     const t = state.clock.getElapsedTime();
 
+    // Boot flames: visible only for the same window the jetpack used to
+    // cover (launching/flying), with a flicker so it reads as live thrust
+    // rather than a static glued-on shape.
+    const thrustActive = phase === 'launching' || phase === 'flying';
+    const leftFoot = targetBones['foot_l_059'];
+    const rightFoot = targetBones['foot_r_067'];
+    [leftFoot, rightFoot].forEach((foot) => {
+      const flame = foot?.getObjectByName('bootFlame');
+      if (!flame) return;
+      flame.visible = thrustActive;
+      if (thrustActive) {
+        const flicker = 0.88 + Math.sin(t * 42 + (foot === leftFoot ? 0 : 1.7)) * 0.06 + Math.random() * 0.08;
+        flame.scale.set(flicker, 1 + Math.random() * 0.15, flicker);
+      }
+    });
+
     const progress = journeyProgressRef?.current ?? journeyProgress;
     const yaw = sampleJourney(progress, group.current.position);
     const wake = smooth((progress - 0.08) / 0.10);
@@ -383,40 +429,13 @@ export default function TacticalAstronaut({ phase, position = [0, 0, 0], scale =
   }, -2);
 
   useEffect(() => {
-    const spine = astronaut.getObjectByName('spine_05_x_08');
-    if (spine && jetpackClone.parent !== spine) {
-      spine.add(jetpackClone);
-      jetpackClone.scale.setScalar(0.95);
-
-      // Figure out which way the mech faces in bind pose so the jetpack
-      // goes on the BACK (opposite the facing direction) instead of hardcoded
-      // to one side and ending up on the front if the model faces the other way.
-      const hips = targetBones['root_x_03'];
-      const leftToe = targetBones['toes_01_l_060'];
-      const rightToe = targetBones['toes_01_r_068'];
-      if (hips && leftToe && rightToe) {
-        astronaut.updateMatrixWorld(true);
-        const hipsPos = new THREE.Vector3();
-        const leftToePos = new THREE.Vector3();
-        const rightToePos = new THREE.Vector3();
-        hips.getWorldPosition(hipsPos);
-        leftToe.getWorldPosition(leftToePos);
-        rightToe.getWorldPosition(rightToePos);
-        const toeZ = (leftToePos.z + rightToePos.z) / 2;
-        const facingPositiveZ = toeZ > hipsPos.z;
-        // Back is the opposite of the facing direction.
-        const jetpackZ = facingPositiveZ ? -0.45 : 0.45;
-        jetpackClone.position.set(0, 0.08, jetpackZ);
-      } else {
-        jetpackClone.position.set(0, 0.08, -0.45);
-      }
-      jetpackClone.rotation.set(0, Math.PI, 0);
-    }
-  }, [astronaut, jetpackClone, targetBones]);
-
-  useEffect(() => {
-    jetpackClone.visible = phase === 'launching' || phase === 'flying';
-  }, [jetpackClone, phase, hopPoints]);
+    const leftFoot = astronaut.getObjectByName('foot_l_059');
+    const rightFoot = astronaut.getObjectByName('foot_r_067');
+    [leftFoot, rightFoot].forEach((foot) => {
+      if (!foot || foot.getObjectByName('bootFlame')) return;
+      foot.add(createBootFlame());
+    });
+  }, [astronaut]);
 
   return (
     <group ref={group} position={position} scale={scale * CHARACTER_SCALE}>

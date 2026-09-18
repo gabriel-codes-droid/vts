@@ -36,6 +36,8 @@ function JourneyController({ progressRef, phase }) {
   const hopPositionRef = useRef(new THREE.Vector3());
   const targetPosition = useRef(new THREE.Vector3());
   const targetLook = useRef(new THREE.Vector3());
+  const cameraForward = useRef(new THREE.Vector3());
+  const cameraRight = useRef(new THREE.Vector3());
   const { camera } = useThree();
   // Follow scroll only while progress is changing. Once the scroll settles,
   // OrbitControls owns the camera so a cursor drag is not overwritten every
@@ -59,16 +61,16 @@ function JourneyController({ progressRef, phase }) {
     new THREE.Vector3(0, 1.2, sleepSpot[2] + 4.3)
   );
   const sleepCamLook = useRef(
-    new THREE.Vector3(0.15, -0.8, 4.2)
+    new THREE.Vector3(0, -0.8, 4.2)
   );
   // Zoomed-in moon-watching framing: the moon is enlarged and pulled forward,
   // so the seated mech + planet row fit the screen together. Camera sits above
   // and in front, looking down at the seat/planet row.
   const moonCamPos = useRef(
-    new THREE.Vector3(0, MOON_SEAT_POSITION[1] + 3.5, 2)
+    new THREE.Vector3(0, MOON_SEAT_POSITION[1] + 3.0, 1.0)
   );
   const moonCamLook = useRef(
-    new THREE.Vector3(0, MOON_SEAT_POSITION[1] + 1.5, -9)
+    new THREE.Vector3(0, MOON_SEAT_POSITION[1] + 1.35, -9.5)
   );
 
   useFrame((state) => {
@@ -83,17 +85,19 @@ function JourneyController({ progressRef, phase }) {
       targetPosition.current.lerpVectors(sleepCamPos.current, heroCamPos.current, reveal);
       targetLook.current.lerpVectors(sleepCamLook.current, heroCamLook.current, reveal);
     } else if (progress < 0.78) {
-      // Keep the original readable chase path: the camera follows just behind
-      // the mech through the three hop platforms and the first flight arc.
-      // This preserves the scene's intended order while avoiding a jump to a
-      // fixed destination that can make the route feel disconnected.
+      // Show the hop route from a front/three-quarter cinematic angle. The
+      // mech faces the viewer as it lands on each cube, then its yaw turns
+      // toward the planets during flight. Keeping the camera in front avoids
+      // the rear-view "obby" read while preserving the authored route.
       const yaw = mechYawRef.current;
-      targetPosition.current.set(
-        p.x - Math.sin(yaw) * 3.2,
-        p.y + 2.8,
-        p.z - Math.cos(yaw) * 3.2,
-      );
+      cameraForward.current.set(Math.sin(yaw), 0, Math.cos(yaw)).normalize();
+      cameraRight.current.set(Math.cos(yaw), 0, -Math.sin(yaw)).normalize();
+      targetPosition.current.copy(p)
+        .addScaledVector(cameraForward.current, 4.8)
+        .addScaledVector(cameraRight.current, 2.2);
+      targetPosition.current.y += 2.4;
       targetLook.current.copy(p);
+      targetLook.current.y += 0.5;
       const chaseStart = progress < 0.46 ? 0.30 : 0.46;
       const chaseAnchor = progress < 0.46 ? sleepCamPos.current : heroCamPos.current;
       const chaseBlend = smooth((progress - chaseStart) / 0.06);
@@ -211,25 +215,21 @@ const SpaceCanvas = () => {
                 and reflections. */}
             <Environment files="/models/night-sky.exr" background={false} />
 
-            {/* Cubes were hidden during 'sleeping' to work around a white-glow
-                bloom issue — but that directly broke the continuity this
-                scene is supposed to have (nothing should pop in/out, the
-                place should feel continuous throughout). Bloom's intensity
-                was already dialed back separately (threshold 0.2→0.9,
-                intensity 1.5→0.8) to address the same glow issue at its
-                actual source, so hiding the cubes on top of that was very
-                likely an unnecessary second fix for the same problem.
-                Hidden while the sleeping/waking close-up is active so the
-                corridor remains the visual focus; it appears in the idle
-                beat just before the first hop. */}
+            {/* Keep the cube field mounted from the opening frame. The route
+                should already exist in the space while the mech sleeps and
+                wakes; it must not pop in at the idle→hop boundary. */}
             <ControlCubeField
               visible={
-                astronautPhase === 'idle'
+                astronautPhase === 'sleeping'
+                || astronautPhase === 'waking'
+                || astronautPhase === 'idle'
                 || astronautPhase === 'hopping'
                 || astronautPhase === 'launching'
               }
               platformsVisible={
-                astronautPhase === 'idle'
+                astronautPhase === 'sleeping'
+                || astronautPhase === 'waking'
+                || astronautPhase === 'idle'
                 || astronautPhase === 'hopping'
                 || astronautPhase === 'launching'
               }
@@ -300,7 +300,17 @@ const SpaceCanvas = () => {
             enabled={ready}
             enableRotate={true}
             enableZoom={false}
-            enablePan={false}
+            // Primary drag pans the camera through the fixed scene. The
+            // world is never rotated as one object; middle-drag can still
+            // orbit for a closer inspection.
+            enablePan={true}
+            screenSpacePanning={true}
+            mouseButtons={{
+              LEFT: THREE.MOUSE.PAN,
+              MIDDLE: THREE.MOUSE.ROTATE,
+              RIGHT: THREE.MOUSE.PAN,
+            }}
+            panSpeed={0.45}
             zoomSpeed={0.6}
             rotateSpeed={0.45}
             maxPolarAngle={Math.PI / 1.8}

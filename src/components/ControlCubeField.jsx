@@ -13,12 +13,14 @@ const ControlCubeField = ({
 }) => {
   const defaultConfigurations = [
     // Front cluster — noticeably smaller now
-    { position: [-6.2, 1.8, -2.8], scale: 0.44, rotationSpeedX: 0.25, rotationSpeedY: 0.35, floatSpeed: 0.4, floatAmplitude: 0.3, phase: 0.4, driftAmplitude: 0.5 },
-    { position: [6.4, -0.6, -2.6], scale: 0.4, rotationSpeedX: 0.3, rotationSpeedY: 0.22, floatSpeed: 0.35, floatAmplitude: 0.28, phase: 2.8, driftAmplitude: 0.45 },
+    // Two unmistakable sci-fi containers frame the opening. The actual hop
+    // platforms below remain AlphaUnit so their landing surfaces stay stable.
+    { position: [-6.2, 1.8, -2.8], scale: 0.44, rotationSpeedX: 0.25, rotationSpeedY: 0.35, floatSpeed: 0.4, floatAmplitude: 0.3, phase: 0.4, driftAmplitude: 0.5, useSciFiCube: true },
+    { position: [6.4, -0.6, -2.6], scale: 0.4, rotationSpeedX: 0.3, rotationSpeedY: 0.22, floatSpeed: 0.35, floatAmplitude: 0.28, phase: 2.8, driftAmplitude: 0.45, useSciFiCube: true },
 
     // Mid-distance — spread wider
-    { position: [-3.5, -1.8, -5.5], scale: 0.38, rotationSpeedX: 0.4, rotationSpeedY: 0.5, floatSpeed: 0.55, floatAmplitude: 0.24, phase: 1.1, driftAmplitude: 0.35 },
-    { position: [4.2, 2.8, -6.8], scale: 0.35, rotationSpeedX: 0.45, rotationSpeedY: 0.4, floatSpeed: 0.5, floatAmplitude: 0.22, phase: 4.2, driftAmplitude: 0.3 },
+    { position: [-3.5, -1.8, -5.5], scale: 0.38, rotationSpeedX: 0.4, rotationSpeedY: 0.5, floatSpeed: 0.55, floatAmplitude: 0.24, phase: 1.1, driftAmplitude: 0.35, useSciFiCube: true },
+    { position: [4.2, 2.8, -6.8], scale: 0.35, rotationSpeedX: 0.45, rotationSpeedY: 0.4, floatSpeed: 0.5, floatAmplitude: 0.22, phase: 4.2, driftAmplitude: 0.3, useSciFiCube: true },
     { position: [0.8, 4.2, -7.5], scale: 0.3, rotationSpeedX: 0.35, rotationSpeedY: 0.55, floatSpeed: 0.6, floatAmplitude: 0.2, phase: 3.0, driftAmplitude: 0.32 },
     { position: [-6.8, 1.5, -7.2], scale: 0.3, rotationSpeedX: 0.42, rotationSpeedY: 0.48, floatSpeed: 0.58, floatAmplitude: 0.2, phase: 2.2, driftAmplitude: 0.3 },
 

@@ -29,6 +29,11 @@ export default function SceneReady({ onReady }) {
   const { gl, scene, camera } = useThree();
   const prepared = useRef(false);
   const frames = useRef(0);
+  // Keep the loading HUD up for a short settled window after compilation.
+  // The first few frames can still upload post-processing/bloom resources,
+  // which otherwise makes the hand-off feel like a hitch even though all
+  // network assets have already finished loading.
+  const STABILIZATION_FRAMES = 24;
   const fence = useRef(null);
   const finished = useRef(false);
 
@@ -111,7 +116,7 @@ export default function SceneReady({ onReady }) {
   useFrame(() => {
     if (!prepared.current || finished.current) return;
     // Normal frames also initialize the full-resolution bloom composer.
-    if (++frames.current < 8) return;
+    if (++frames.current < STABILIZATION_FRAMES) return;
     const context = gl.getContext();
     if (!fence.current) {
       fence.current = context.fenceSync(context.SYNC_GPU_COMMANDS_COMPLETE, 0);

@@ -14,7 +14,7 @@ export const HOP_CUBE_SIZE = 0.8;
 // from the moon before launch, which keeps the opening and planet scenes from
 // intersecting.
 export const HOP_WAYPOINTS = [
-  [0.3, -1.23645, 5.7],
+  [0.0, -1.23645, 5.7],
   [2.8, -2.4, 8.5],
   [-2.4, -4.3, 10.5],
   [3.0, -6.2, 12.5],
@@ -31,7 +31,9 @@ export const FLIGHT_APEX = [LAUNCH_POINT[0], LAUNCH_POINT[1] + 6.5, LAUNCH_POINT
 
 // Moon pushed way below the cubes — real separation from the cube scene.
 export const MOON_CENTER = [0, -18, -8];
-export const MOON_RADIUS = 6.0;
+// Broader foreground for the final landing while keeping the authored center
+// and the planet row direction unchanged.
+export const MOON_RADIUS = 6.8;
 export const MOON_SEAT_POSITION = [
   MOON_CENTER[0],
   // Downward raycast through the normalized moon.glb at its center X/Z.

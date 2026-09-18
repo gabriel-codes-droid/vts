@@ -1,32 +1,43 @@
 ---
 import SpaceCanvas from '../components/SpaceCanvas';
 import Layout from '../layouts/Layout.astro';
+
 ---
 
-<Layout title="3D Portfolio">
-  <!-- Loading HUD: shown until the R3F scene is mounted and first render lands. -->
+<Layout title="Gabriel Mandrake | Full Stack Developer">
+  <!-- Rocket speed-bar loading HUD: horizontal capsule, dark left half with
+       fast stars + exhaust trail, white right half ahead of the rocket, rocket
+       travels left→right inside the bar as progress fills. -->
   <div id="boot-hud" data-stage="loading" data-progress="0" aria-busy="true" class="fixed inset-0 z-[9999] flex items-center justify-center bg-black overflow-hidden">
     <div id="boot-canvas-wrap" class="absolute inset-0">
       <canvas id="boot-canvas" class="absolute inset-0 w-full h-full"></canvas>
     </div>
 
-    <div class="relative z-10 flex flex-col items-center gap-8 select-none">
-      <!-- Vertical rocket speed bar -->
-      <div class="relative w-[64px] h-[280px] md:w-[72px] md:h-[320px] flex flex-col items-center">
-        <div class="relative w-full h-full rounded-full overflow-hidden border border-white/10 shadow-[0_0_30px_8px_rgba(135,243,255,0.12)]">
-          <div class="absolute inset-x-0 top-0 h-1/2 bg-white/90"></div>
-          <div id="boot-bar-fill" class="absolute bottom-0 left-0 right-0 h-0 rounded-full bg-[#05070d] transition-[height] duration-200 ease-linear" style="height:0%"></div>
-          <div id="boot-bar-line" class="absolute left-0 right-0 h-px bg-white/40" style="bottom:50%"></div>
+    <div class="relative z-10 flex flex-col items-center gap-10 select-none">
+      <!-- Horizontal rocket speed bar (larger) -->
+      <div class="relative w-[380px] h-[88px] md:w-[470px] md:h-[96px] flex items-center">
+        <div class="relative w-full h-full rounded-full overflow-hidden border border-white/10 shadow-[0_0_48px_12px_rgba(135,243,255,0.18)]">
+          <!-- White right half (destination, ahead of rocket) -->
+          <div class="absolute inset-y-0 right-0 w-1/2 bg-white/90"></div>
+          <!-- Dark left half (traveled, starfield) grows from 0 to 100% -->
+          <div id="boot-bar-fill" class="absolute inset-y-0 left-0 h-full w-0 rounded-l-full bg-[#05070d] transition-[width] duration-200 ease-linear" style="width:0%"></div>
+          <!-- Thin white divider line at the 50% midpoint -->
+          <div id="boot-bar-line" class="absolute top-0 bottom-0 left-1/2 w-px bg-white/40"></div>
         </div>
-        <div id="boot-rocket" class="absolute left-1/2 -translate-x-1/2 bottom-0 transition-[bottom] duration-200 ease-linear" style="bottom:0%">
-          <svg viewBox="0 0 48 96" class="w-7 h-14 md:w-8 md:h-16 drop-shadow-[0_0_10px_rgba(135,243,255,0.6)]" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M20 90 L24 96 L28 90 Z" fill="#8cf0ff" opacity="0.9"/>
-            <path d="M21 86 L24 92 L27 86 Z" fill="#fff" opacity="0.7"/>
-            <path d="M24 4 L16 40 L16 72 Q16 84 24 88 Q32 84 32 72 L32 4 Z" fill="#0a0303" stroke="#8cf0ff" stroke-width="1.2"/>
-            <circle cx="24" cy="28" r="3.5" fill="#8cf0ff" opacity="0.8"/>
-            <circle cx="24" cy="28" r="2" fill="#0a0303"/>
-            <path d="M16 72 L10 84 L16 80 Z" fill="#0a0303" stroke="#8cf0ff" stroke-width="0.8"/>
-            <path d="M32 72 L38 84 L32 80 Z" fill="#0a0303" stroke="#8cf0ff" stroke-width="0.8"/>
+        <!-- Rocket: moves left (0%) → right (100%) inside the bar track -->
+        <div id="boot-rocket" class="absolute top-1/2 -translate-y-1/2 left-0 transition-[left] duration-200 ease-linear" style="left:0%">
+          <svg viewBox="0 0 96 48" class="w-16 h-8 md:w-18 md:h-9 drop-shadow-[0_0_14px_rgba(135,243,255,0.75)]" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <!-- exhaust flame (left side, trailing) -->
+            <path d="M6 18 L0 24 L6 30 Z" fill="#8cf0ff" opacity="0.9"/>
+            <path d="M10 20 L4 24 L10 28 Z" fill="#fff" opacity="0.75"/>
+            <!-- fuselage -->
+            <path d="M32 4 L12 16 Q4 24 12 32 L32 40 Q40 44 48 40 L68 32 Q76 24 68 16 Z" fill="#0a0303" stroke="#8cf0ff" stroke-width="1.2"/>
+            <!-- window -->
+            <circle cx="48" cy="20" r="3.5" fill="#8cf0ff" opacity="0.8"/>
+            <circle cx="48" cy="20" r="2" fill="#0a0303"/>
+            <!-- fins -->
+            <path d="M12 32 L0 40 L12 36 Z" fill="#0a0303" stroke="#8cf0ff" stroke-width="0.8"/>
+            <path d="M68 32 L80 40 L68 36 Z" fill="#0a0303" stroke="#8cf0ff" stroke-width="0.8"/>
           </svg>
         </div>
       </div>
@@ -44,9 +55,8 @@ import Layout from '../layouts/Layout.astro';
   </div>
 
   <SpaceCanvas client:only="react" />
-</Layout>
 
-<script is:inline>
+  <script is:inline>
 (function () {
   'use strict';
 
@@ -68,13 +78,11 @@ import Layout from '../layouts/Layout.astro';
 
   var W = 0, H = 0, DPR = Math.min(window.devicePixelRatio || 1, 2);
   var STATE = {
-    speed: 1,         // multiplier — ramps as gauge fills, stars accelerate
-    px: 50, py: 50,
+    speed: 1,
     t: 0,
     gaugeT: 0,
   };
 
-  // Color tokens
   var COLORS = {
     bg: '#05070d',
     cyan: 'rgba(135,243,255,1)',
@@ -85,28 +93,24 @@ import Layout from '../layouts/Layout.astro';
 
   function hexToRgb(hex) {
     var m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-    return m ? {
-      r: parseInt(m[1], 16), g: parseInt(m[2], 16), b: parseInt(m[3], 16)
-    } : { r: 0, g: 0, b: 0 };
+    return m ? { r: parseInt(m[1], 16), g: parseInt(m[2], 16), b: parseInt(m[3], 16) }
+      : { r: 0, g: 0, b: 0 };
   }
-
-  function lerp(a, b, t) { return a + (b - a) * t; }
   function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
   function rand(min, max) { return min + Math.random() * (max - min); }
 
-  // Starfield: 3 depth layers with perspective anchor, accelerating over time.
+  // 3 depth layers of stars, accelerating as the gauge climbs.
   var STARS = { near: [], mid: [], far: [], all: [] };
   function initStars() {
     STARS.near = []; STARS.mid = []; STARS.far = []; STARS.all = [];
     var layers = [
-      { depth: 0.18, count: 70, speed: 2.4, size: [0.6, 1.6], hue: 'near' },
-      { depth: 0.42, count: 120, speed: 1.2, size: [0.4, 1.0], hue: 'mid' },
-      { depth: 0.72, count: 160, speed: 0.6, size: [0.3, 0.7], hue: 'far' },
+      { depth: 0.18, count: 70, speed: 2.4, size: [0.7, 1.8] },
+      { depth: 0.42, count: 120, speed: 1.2, size: [0.4, 1.1] },
+      { depth: 0.72, count: 160, speed: 0.6, size: [0.3, 0.7] },
     ];
     layers.forEach(function (layer) {
       for (var i = 0; i < layer.count; i++) {
         var s = {
-          layer: layer.hue,
           z: rand(layer.depth, layer.depth + 0.22),
           x: rand(-1, 1),
           y: rand(-1, 1),
@@ -115,10 +119,11 @@ import Layout from '../layouts/Layout.astro';
           phase: rand(0, Math.PI * 2),
           tail: [],
         };
-        STARS[layer.hue].push(s);
+        STARS[layer.hue || 'far'].push(s);
         STARS.all.push(s);
       }
     });
+    // (hue buckets unused in this simpler draw route — kept for parity)
   }
 
   function resize() {
@@ -133,11 +138,9 @@ import Layout from '../layouts/Layout.astro';
   }
 
   function drawBackground(colors, t) {
-    // Very dark base
     CTX.fillStyle = colors.bg;
     CTX.fillRect(0, 0, W, H);
 
-    // Subtle perspective grid (parallax)
     CTX.save();
     CTX.translate(W / 2, H / 2);
     var gridScale = 0.5 + 0.5 * STATE.speed;
@@ -147,17 +150,11 @@ import Layout from '../layouts/Layout.astro';
     CTX.setLineDash([2, 8]);
     for (var g = -20; g <= 20; g++) {
       var yy = g * 40 * gridScale;
-      CTX.beginPath();
-      CTX.moveTo(-W, yy);
-      CTX.lineTo(W, yy);
-      CTX.stroke();
+      CTX.beginPath(); CTX.moveTo(-W, yy); CTX.lineTo(W, yy); CTX.stroke();
     }
     for (var gg = -20; gg <= 20; gg++) {
       var xx = gg * 40 * gridScale;
-      CTX.beginPath();
-      CTX.moveTo(xx, -H);
-      CTX.lineTo(xx, H);
-      CTX.stroke();
+      CTX.beginPath(); CTX.moveTo(xx, -H); CTX.lineTo(xx, H); CTX.stroke();
     }
     CTX.setLineDash([]);
     CTX.restore();
@@ -166,25 +163,24 @@ import Layout from '../layouts/Layout.astro';
   function hexToRgba(hex, alpha) {
     var c = hexToRgb(hex.replace('rgb', '').replace(/\(.*/, ''));
     if (!c.r && !c.g && !c.b) {
-      // fallback: if hex passed directly
       var m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-      if (m) {
-        c = { r: parseInt(m[1], 16), g: parseInt(m[2], 16), b: parseInt(m[3], 16) };
-      } else {
-        return 'rgba(135,243,255,' + alpha + ')';
-      }
+      if (m) { c = { r: parseInt(m[1], 16), g: parseInt(m[2], 16), b: parseInt(m[3], 16) }; }
+      else { return 'rgba(135,243,255,' + alpha + ')'; }
     }
     return 'rgba(' + c.r + ',' + c.g + ',' + c.b + ',' + alpha + ')';
   }
 
   function drawStars(state, t, colors) {
     var cx = W / 2, cy = H / 2;
+    // Left half = dark traveled region; clip stars to that side so they only
+    // appear in the dark portion trailing behind the rocket.
+    var leftHalf = W / 2;
     var accel = 1 + 0.8 * state.speed;
-    var speedMul = Math.min(18, 1 + 17 * state.speed);
+    var speedMul = Math.min(20, 1 + 19 * state.speed);
 
     STARS.all.forEach(function (s) {
       var sp = s.baseSpeed * accel * speedMul * (0.7 + 0.5 * Math.sin(state.t * 0.6 + s.phase));
-      s.z += sp * 0.006;
+      s.z += sp * 0.008;
       if (s.z > 1.2) {
         s.z = 0.02;
         s.x = rand(-1, 1);
@@ -194,11 +190,11 @@ import Layout from '../layouts/Layout.astro';
       var perspective = 1 / Math.max(0.05, s.z);
       var px = cx + s.x * perspective * (W * 0.5);
       var py = cy + s.y * perspective * (H * 0.5);
-      // Clip stars to the lower half (the dark traveled portion of the capsule)
-      if (py < cy - 2) return;
+      // Only draw stars in the dark (left) half — white right half stays clean.
+      if (px > leftHalf - 1) return;
       var size = s.size * (0.5 + 0.5 * perspective);
 
-      var tailLen = Math.min(20, Math.floor(6 + 14 * state.speed * (state.speed > 3 ? 2.4 : 1)));
+      var tailLen = Math.min(22, Math.floor(6 + 16 * state.speed * (state.speed > 3 ? 2.6 : 1)));
       s.tail.push({ x: px, y: py, life: 1 });
       if (s.tail.length > tailLen) s.tail.shift();
       s.tail.forEach(function (p, i) { p.life -= 1 / tailLen; });
@@ -229,19 +225,19 @@ import Layout from '../layouts/Layout.astro';
   function updateGauge() {
     var target = Number(ROOT.dataset.progress || 0);
     STATE.gaugeT = Math.max(STATE.gaugeT, target);
-    var pct = STATE.gaugeT * 100;
-    // Dark fill grows from bottom (0%) up to the midpoint (50%), then crosses
-    // into the white half — the rocket keeps climbing past the line to 100%.
-    var fillPct = Math.min(100, pct * 1.2);
-    BAR_FILL.style.height = fillPct + '%';
-    // Rocket position: 0% at bottom, 100% at top of the bar.
-    var rocketPct = Math.min(100, Math.max(0, pct * 100));
-    ROCKET.style.bottom = rocketPct + '%';
-    // White line stays at the 50% mark (the capsule midpoint).
-    BAR_LINE.style.bottom = '50%';
-    // Speed ramps as progress climbs.
-    STATE.speed = 0.4 + 3.2 * STATE.gaugeT;
+    var rocketPct = Math.min(100, Math.max(0, STATE.gaugeT * 100));
+    // Dark fill grows across the full width (0% → 100%), covering the white
+    // half as the rocket crosses the midpoint line.
+    var fillW = Math.min(100, STATE.gaugeT * 100);
+    BAR_FILL.style.width = fillW + '%';
+    // Rocket travels inside the full bar from left (0%) to right (100%).
+    ROCKET.style.left = rocketPct + '%';
+    // Midpoint divider line stays fixed at 50% of the bar.
+    BAR_LINE.style.left = '50%';
+    // Stars accelerate as the rocket progresses.
+    STATE.speed = 0.4 + 3.4 * STATE.gaugeT;
     STATUS_SEC.textContent = 'ASCENT … ' + Math.floor(rocketPct) + '%';
+    if (STATE.gaugeT >= 1) completeBoot();
     if (ROOT.dataset.stage === 'error') {
       RETRY.hidden = false;
       RETRY.title = ROOT.dataset.error;
@@ -270,12 +266,10 @@ import Layout from '../layouts/Layout.astro';
   function loop(t) {
     if (finished) return;
     STATE.t = t / 1000;
-
     var colors = COLORS;
     drawBackground(colors, STATE.t);
     drawStars({ speed: STATE.speed, t: STATE.t }, STATE.t, colors);
     updateGauge();
-
     if (!finished) rafId = requestAnimationFrame(loop);
   }
 
@@ -284,7 +278,7 @@ import Layout from '../layouts/Layout.astro';
     resize();
     window.addEventListener('resize', resize);
     window.addEventListener('portfolio:boot', updateGauge);
-    updateGauge(); // also consume readiness if hydration finished first
+    updateGauge();
     if (!finished) rafId = requestAnimationFrame(loop);
   }
 
@@ -294,12 +288,13 @@ import Layout from '../layouts/Layout.astro';
     init();
   }
 })();
-</script>
+  </script>
 
-<style is:global>
-  #boot-hud {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-</style>
+  <style is:global>
+    #boot-hud {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+  </style>
+</Layout>
