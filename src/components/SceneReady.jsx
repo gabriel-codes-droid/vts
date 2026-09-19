@@ -115,6 +115,22 @@ export default function SceneReady({ onReady }) {
 
   useFrame(() => {
     if (!prepared.current || finished.current) return;
+    // Suspense resolves the scene assets; also require the loading manager
+    // to be idle before the settled-frame/GPU gate can release the curtain.
+    const loading = useProgress.getState();
+    if (loading.errors.length) {
+      finished.current = true;
+      reportBoot('error', 0, 'An asset could not load. Reload to retry.');
+      return;
+    }
+    if (loading.active || loading.loaded < loading.total) {
+      frames.current = 0;
+      if (fence.current) {
+        gl.getContext().deleteSync(fence.current);
+        fence.current = null;
+      }
+      return;
+    }
     // Normal frames also initialize the full-resolution bloom composer.
     if (++frames.current < STABILIZATION_FRAMES) return;
     const context = gl.getContext();

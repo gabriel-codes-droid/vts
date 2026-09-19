@@ -1,0 +1,114 @@
+<div id="boot-hud" data-stage="loading" data-progress="0" data-presentation="loading" aria-busy="true">
+  <div id="boot-curtain" aria-hidden="true"></div>
+  <canvas id="boot-canvas" aria-hidden="true"></canvas>
+  <div id="boot-streaks" aria-hidden="true"></div>
+
+  <div id="boot-gauge" role="progressbar" aria-label="Loading portfolio" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+    <!-- Inverted reference: white travelled section, black space ahead,
+         white rocket and border. The SVG stays sharp at every viewport. -->
+    <svg id="boot-bar" viewBox="0 0 1000 140" aria-hidden="true">
+      <defs>
+        <clipPath id="boot-track-clip"><rect x="6" y="6" width="988" height="128" rx="64" /></clipPath>
+      </defs>
+      <rect x="6" y="6" width="988" height="128" rx="64" fill="#000" stroke="#fff" stroke-width="12" />
+      <g clip-path="url(#boot-track-clip)">
+        <rect id="boot-bar-fill" x="0" y="0" width="0" height="140" fill="#fff" />
+        <g id="boot-exhaust" fill="#000" stroke="#000" stroke-linecap="round">
+          <circle cx="-12" cy="49" r="3"/><circle cx="-35" cy="90" r="4"/>
+          <circle cx="-67" cy="43" r="2"/><circle cx="-100" cy="86" r="2.5"/>
+          <path d="M-8 70h-28 M-27 57h-24 M-47 80h-31 M-77 62h-14" stroke-width="3"/>
+        </g>
+        <g id="boot-rocket" transform="translate(20 70)">
+          <g fill="#fff" stroke="#000" stroke-width="4" stroke-linejoin="round">
+            <path d="M31-17 9-37 -1-36 5-8 M31 17 9 37 -1 36 5 8" />
+            <path d="M6-21C37-29 63-22 81 0 63 22 37 29 6 21Z" />
+            <path d="M6-21H-3V21H6Z" />
+            <ellipse cx="48" cy="0" rx="10" ry="12" fill="#000" />
+            <path d="M68-12 64 0 68 12" fill="none" />
+          </g>
+        </g>
+      </g>
+    </svg>
+  </div>
+
+  <div class="boot-counter" aria-hidden="true">
+    <span id="boot-number" class="boot-number"><span class="boot-number-value">0</span></span>
+    <span class="boot-percent">%</span>
+  </div>
+  <p id="boot-announcement" class="boot-sr-only" role="status" aria-live="polite">Loading your space journey.</p>
+  <div id="boot-error" hidden>
+    <p>Something couldn’t load. Please try again.</p>
+    <button id="boot-retry" type="button">Reload scene</button>
+  </div>
+</div>
+
+<!-- Lock before the React island hydrates, including restored browser scroll. -->
+<script is:inline>
+  document.documentElement.classList.add('portfolio-booting');
+  if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+  window.scrollTo(0, 0);
+</script>
+<script>
+  import { initBootLoader } from '../scripts/bootLoader.js';
+  initBootLoader();
+</script>
+
+<style is:global>
+  html.portfolio-booting, html.portfolio-booting body { overflow: hidden !important; overscroll-behavior: none; }
+  #boot-hud {
+    position: fixed; inset: 0; z-index: 9999; isolation: isolate;
+    display: grid; place-items: center; overflow: hidden;
+    color: #fff; user-select: none; touch-action: none;
+  }
+  #boot-hud[hidden] { display: none; }
+  #boot-curtain {
+    position: absolute; inset: 0; background: #000;
+    transform: scaleY(1); transform-origin: center top; will-change: transform;
+    transition: transform 1000ms cubic-bezier(.76, 0, .24, 1);
+  }
+  #boot-hud[data-presentation="revealing"] #boot-curtain { transform: scaleY(0); }
+  #boot-gauge, .boot-counter {
+    transition: transform 800ms cubic-bezier(.76, 0, .24, 1), opacity 450ms ease;
+  }
+  #boot-hud[data-presentation="revealing"] #boot-gauge,
+  #boot-hud[data-presentation="revealing"] .boot-counter { transform: translate3d(0, -35vh, 0); opacity: 0; }
+  #boot-canvas, #boot-streaks { transition: opacity 350ms ease; }
+  #boot-hud[data-presentation="revealing"] #boot-canvas,
+  #boot-hud[data-presentation="revealing"] #boot-streaks { opacity: 0; }
+  #boot-canvas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+  #boot-streaks { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+  .boot-streak {
+    position: absolute; left: 50%; top: 50%; width: 32px; height: 1px;
+    background: linear-gradient(90deg, transparent, #fff); opacity: 0;
+    animation: boot-shoot var(--flight-time) linear var(--flight-delay) infinite;
+  }
+  @keyframes boot-shoot {
+    0% { transform: translate3d(var(--start-x), var(--start-y), 0) rotate(var(--angle)) scaleX(.1); opacity: 0; }
+    22% { opacity: .6; }
+    80% { opacity: .6; }
+    100% { transform: translate3d(var(--end-x), var(--end-y), 0) rotate(var(--angle)) scaleX(1); opacity: 0; }
+  }
+  #boot-gauge { position: relative; width: min(560px, 76vw); }
+  #boot-bar { display: block; width: 100%; overflow: visible; }
+  .boot-counter {
+    position: absolute; right: max(6vw, 24px); bottom: max(6vh, 28px);
+    display: flex; align-items: flex-start; gap: .1em;
+    font-family: var(--font-inter, system-ui), sans-serif;
+    font-size: clamp(66px, 9vw, 132px); font-weight: 400;
+    font-variant-numeric: tabular-nums; letter-spacing: -.06em; line-height: 1;
+  }
+  .boot-number { display: flex; width: 1.95em; height: 1.04em; letter-spacing: 0; }
+  .boot-digit { display: block; flex: 1; height: 1.04em; overflow: hidden; contain: paint; }
+  .boot-digit-strip { display: block; height: 2.08em; transform: translate3d(0, -50%, 0); will-change: transform; }
+  .boot-digit-strip > span { display: block; height: 1.04em; text-align: center; white-space: pre; }
+  .boot-percent { font-size: .28em; letter-spacing: -.035em; margin-top: .3em; }
+  #boot-error { position: absolute; bottom: 12%; left: 7%; max-width: 52%; font-size: 14px; line-height: 1.5; }
+  #boot-error[hidden] { display: none; }
+  #boot-retry { margin-top: 14px; padding: 10px 20px; border: 1px solid #fff; border-radius: 99px; background: #000; color: #fff; cursor: pointer; }
+  #boot-retry:focus-visible { outline: 2px solid #fff; outline-offset: 5px; }
+  .boot-sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  @media (prefers-reduced-motion: reduce) {
+    #boot-curtain, #boot-gauge, .boot-counter, #boot-canvas, #boot-streaks { transition-duration: 180ms; }
+    .boot-streak { animation: none; }
+  }
+</style>

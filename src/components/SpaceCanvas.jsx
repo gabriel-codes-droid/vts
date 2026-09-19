@@ -33,7 +33,6 @@ const MOON_POSITION = MOON_CENTER;
  * space at all during the flying phase, only the phase name changed.
  */
 function JourneyController({ progressRef, phase }) {
-  const hopPositionRef = useRef(new THREE.Vector3());
   const targetPosition = useRef(new THREE.Vector3());
   const targetLook = useRef(new THREE.Vector3());
   const cameraForward = useRef(new THREE.Vector3());
@@ -123,7 +122,6 @@ function JourneyController({ progressRef, phase }) {
         position={[0, 0, 0]}
         scale={1}
         hopPoints={HOP_WAYPOINTS}
-        hopPositionRef={hopPositionRef}
         journeyProgressRef={progressRef}
         mechPosRef={mechPosRef}
         mechYawRef={mechYawRef}
@@ -143,13 +141,23 @@ class SceneErrorBoundary extends Component {
 }
 
 const SpaceCanvas = () => {
-  const canvasRef = useRef();
   const scrollTrackRef = useRef(null);
   const [astronautPhase, setAstronautPhase] = useState('sleeping');
   const scrollProgressRef = useRef(0);
 
+  const [prepared, setPrepared] = useState(false);
   const [ready, setReady] = useState(false);
-  const handleReady = useCallback(() => setReady(true), []);
+  const handleReady = useCallback(() => setPrepared(true), []);
+
+  // Assets can be prepared before the loader's 100% hold/curtain finishes.
+  // Start scroll and drag only after the opening scene has been revealed.
+  useEffect(() => {
+    if (!prepared) return;
+    const reveal = () => setReady(true);
+    if (document.getElementById('boot-hud')?.dataset.revealed === 'true') reveal();
+    window.addEventListener('portfolio:revealed', reveal);
+    return () => window.removeEventListener('portfolio:revealed', reveal);
+  }, [prepared]);
 
   useEffect(() => {
     if (!ready || !scrollTrackRef.current) return;
@@ -187,7 +195,6 @@ const SpaceCanvas = () => {
       <div className="fixed inset-0 z-0">
         <SceneErrorBoundary>
         <Canvas
-          ref={canvasRef}
           camera={{ position: [0, 0, 6], fov: 52 }}
           gl={{ antialias: true, alpha: true }}
           dpr={[1, 2]}
@@ -252,8 +259,6 @@ const SpaceCanvas = () => {
               }
             />
 
-          {/* CrashSite removed completely - alien_planet_lv-426.glb no longer used */}
-
             {/* Was part of the old CrashSite.jsx, which got deleted entirely
                 along with the ground approach it was paired with — the
                 debris rendering itself was never actually broken, it just
@@ -270,9 +275,8 @@ const SpaceCanvas = () => {
               }
             />
 
-            {/* The moon/planets enter only after the cube route and launch
-                beat. Their material fade begins with the flying phase so the
-                cube scene remains clean and the hand-off never flashes early. */}
+            {/* The moon/planets enter after the cube route and launch beat.
+                Solid surfaces occlude the star background throughout flight. */}
             <group
               visible={
                 astronautPhase === 'flying'
@@ -288,7 +292,6 @@ const SpaceCanvas = () => {
                   || astronautPhase === 'landing'
                   || astronautPhase === 'seated'
                 }
-                progressRef={scrollProgressRef}
               />
             </group>
 

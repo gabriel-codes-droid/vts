@@ -6,9 +6,6 @@ import { sampleJourney, smooth, clamp } from './journey';
 import { clone as cloneSkinnedScene } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import {
   MOON_SEAT_POSITION,
-  PLANET_ROW_Z,
-  LAUNCH_POINT,
-  FLIGHT_APEX,
   MECH_SLEEP_POSITION,
 } from './sceneConstants';
 
@@ -76,17 +73,10 @@ function createBootFlame() {
   return group;
 }
 
-// The bot mecha's bind-pose geometry reaches the local y=0 plane, so its
-// group origin can be placed directly on the shared cube-top waypoint.
-const FOOT_OFFSET = 0;
-
-export default function TacticalAstronaut({ phase, position = [0, 0, 0], scale = 1, hopPoints = [[0, 0, 0]], hopPositionRef, journeyProgress = 0, journeyProgressRef, mechPosRef, mechYawRef }) {
+export default function TacticalAstronaut({ phase, position = [0, 0, 0], scale = 1, hopPoints = [[0, 0, 0]], journeyProgress = 0, journeyProgressRef, mechPosRef, mechYawRef }) {
   const group = useRef(null);
-  const hopIndex = useRef(0);
-  const hopStart = useRef(null);
   const activeAction = useRef(null);
   const { scene } = useGLTF(ASTRONAUT_MODEL);
-  const { scene: jetpack } = useGLTF(JETPACK_MODEL);
   const astronaut = useMemo(() => {
     const clone = cloneSkinnedScene(scene);
     // Lock every sub-material to real opaque front-face PBR so the mech reads
@@ -190,8 +180,6 @@ export default function TacticalAstronaut({ phase, position = [0, 0, 0], scale =
     inverseParentWorld: new THREE.Quaternion(),
     wrapperWorld: new THREE.Quaternion(),
     floorLeg: new THREE.Quaternion(),
-    hipTwist: new THREE.Quaternion(),
-    hipTwistInverse: new THREE.Quaternion(),
   }), []);
   const targetPoseWorld = useRef({});
   const sourceMixer = useMemo(() => new THREE.AnimationMixer(sourceRig), [sourceRig]);
@@ -229,18 +217,10 @@ export default function TacticalAstronaut({ phase, position = [0, 0, 0], scale =
     return () => action.fadeOut(0.12);
   }, [actions, phase]);
 
-  const hopDirRef = useRef(new THREE.Vector3());
-
   const movementScratch = useMemo(() => ({
-    direction: new THREE.Vector3(),
-    yaw: new THREE.Vector3(),
     leftToe: new THREE.Vector3(),
     rightToe: new THREE.Vector3(),
-    launch: new THREE.Vector3(...LAUNCH_POINT),
-    apex: new THREE.Vector3(...FLIGHT_APEX),
-    seat: new THREE.Vector3(MOON_SEAT_POSITION[0], MOON_SEAT_POSITION[1] - FOOT_OFFSET, MOON_SEAT_POSITION[2]),
   }), []);
-  const seatedWorldScale = useMemo(() => new THREE.Vector3(), []);
   const seatedHipBend = useMemo(
     () => new THREE.Quaternion().setFromEuler(new THREE.Euler(-2.1, 0, 0)),
     [],
@@ -249,24 +229,6 @@ export default function TacticalAstronaut({ phase, position = [0, 0, 0], scale =
     () => new THREE.Quaternion().setFromEuler(new THREE.Euler(-1.05, 0, 0)),
     [],
   );
-  // The forced leg bend above exists because the retargeted sitting clip
-  // doesn't read correctly on this mecha's proportions/twist-bone setup —
-  // the same mismatch almost certainly affects the arms too, and nothing
-  // was correcting them. Pulls the upper arms forward/down and bends the
-  // elbows toward a relaxed "resting near the knees" seated pose instead of
-  // trusting the raw retargeted arm rotation. Values are a reasoned first
-  // pass, not measured against this model's actual bind pose — needs visual
-  // confirmation like the leg bend did.
-  const seatedShoulderBend = useMemo(
-    () => new THREE.Quaternion().setFromEuler(new THREE.Euler(0, 0, -0.55)),
-    [],
-  );
-  const seatedElbowBend = useMemo(
-    () => new THREE.Quaternion().setFromEuler(new THREE.Euler(0, 0, 0.95)),
-    [],
-  );
-
-  const seatedRightShoulderBend = useMemo(() => seatedShoulderBend.clone().invert(), [seatedShoulderBend]);
 
   useFrame((state, delta) => {
     if (!group.current) return;
@@ -422,7 +384,6 @@ export default function TacticalAstronaut({ phase, position = [0, 0, 0], scale =
     }
 
     // Publish on EVERY phase, after the pose has been placed.
-    hopPositionRef?.current.copy(group.current.position);
     if (mechPosRef) group.current.getWorldPosition(mechPosRef.current);
     if (mechYawRef) mechYawRef.current = group.current.rotation.y;
 

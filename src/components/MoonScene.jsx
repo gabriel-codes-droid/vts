@@ -5,18 +5,20 @@ import * as THREE from 'three';
 import { isSceneVisible } from './sceneActivity';
 import { PLANET_ROW_SPACING, PLANET_ROW_Y, PLANET_ROW_Z } from './sceneConstants';
 
-// Force every material under a loaded GLB to real opaque PBR so nothing
-// reads as ghostly or phasable. Keeping these surfaces opaque is important:
-// the star image is the canvas backdrop, so a transparent planet would reveal
-// those pixels through its silhouette and make stars look painted on it.
+// Solid planet cores occlude the CSS star backdrop. Preserve the authored
+// cloud alpha above them, and use independent materials so fade/compile state
+// from a cached GLTF cannot leak into these surfaces.
 function forceSolid(object) {
   object.traverse((child) => {
     if (!child.isMesh || !child.material) return;
+    child.material = Array.isArray(child.material)
+      ? child.material.map(material => material.clone()) : child.material.clone();
     const mats = Array.isArray(child.material) ? child.material : [child.material];
     for (const m of mats) {
-      m.transparent = false;
-      m.opacity = 1;
-      m.depthWrite = true;
+      const cloud = /cloud/i.test(m.name);
+      m.transparent = cloud;
+      if (!cloud) m.opacity = 1;
+      m.depthWrite = !cloud;
       m.depthTest = true;
       m.alphaTest = 0;
       m.blending = THREE.NormalBlending;
@@ -29,13 +31,14 @@ function forceSolid(object) {
       if (m.thickness !== undefined) { m.thickness = 0; }
       if (m.attenuationColor !== undefined) { m.attenuationColor = new THREE.Color(1, 1, 1); }
       if (m.emissiveMap && !m.map) { m.emissiveMap = undefined; }
+      m.needsUpdate = true;
     }
   });
 }
 
 // Real moon model, auto-scaled to a known radius so MOON_SEAT_POSITION
 // always lands exactly on its actual surface.
-export function MoonModel({ position, targetRadius, progressRef }) {
+export function MoonModel({ position, targetRadius }) {
   const { scene } = useGLTF('/models/moon.glb');
   const cloned = useMemo(() => {
     const c = scene.clone(true);
@@ -59,12 +62,11 @@ export function MoonModel({ position, targetRadius, progressRef }) {
     return centered;
   }, [cloned, scale]);
 
-  const ref = useRef();
   // The moon is the landing platform. Keep its measured contact point fixed;
   // the four project planets retain their own independent rotation below.
 
   return (
-    <group ref={ref} position={position} scale={scale}>
+    <group position={position} scale={scale}>
       <primitive object={centeredMoon} />
     </group>
   );
@@ -72,7 +74,7 @@ export function MoonModel({ position, targetRadius, progressRef }) {
 
 // Real GLB planet — loads the actual model from /models and auto-scales it
 // to the requested size so all planets in the row read consistently.
-function PlanetGLB({ position, size, color, name, modelPath, progressRef }) {
+function PlanetGLB({ position, size, color, modelPath }) {
   const { scene } = useGLTF(modelPath);
   const groupRef = useRef();
 
@@ -90,8 +92,8 @@ function PlanetGLB({ position, size, color, name, modelPath, progressRef }) {
     return clone;
   }, [scene, size]);
 
-  useFrame((state) => {
-    if (isSceneVisible(groupRef.current)) groupRef.current.rotation.y += 0.003;
+  useFrame((state, delta) => {
+    if (isSceneVisible(groupRef.current)) groupRef.current.rotation.y += delta * 0.18;
   });
 
   return (
@@ -132,14 +134,14 @@ const PROJECTS = [
   },
 ];
 
-export default function MoonScene({ moonPosition, moonRadius, planetsVisible = true, progressRef }) {
+export default function MoonScene({ moonPosition, moonRadius, planetsVisible = true }) {
   const spacing = PLANET_ROW_SPACING;
   const planetY = PLANET_ROW_Y;
 
 
   return (
     <group>
-      <MoonModel position={moonPosition} targetRadius={moonRadius} progressRef={progressRef} />
+      <MoonModel position={moonPosition} targetRadius={moonRadius} />
       <group visible={planetsVisible}>
       {PROJECTS.map((project, i) => (
         <PlanetGLB
@@ -151,9 +153,7 @@ export default function MoonScene({ moonPosition, moonRadius, planetsVisible = t
           ]}
           size={project.size}
           color={project.color}
-          name={project.name}
           modelPath={project.modelPath}
-          progressRef={progressRef}
         />
       ))}
       </group>
