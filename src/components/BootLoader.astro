@@ -29,6 +29,7 @@
         </g>
       </g>
     </svg>
+    <p class="boot-loading-label" aria-hidden="true">LOADING<span class="boot-loading-dots"> ....</span></p>
   </div>
 
   <div class="boot-counter" aria-hidden="true">
@@ -68,7 +69,7 @@
   }
   #boot-hud[data-presentation="revealing"] #boot-curtain { transform: scaleY(0); }
   #boot-gauge, .boot-counter {
-    transition: transform 800ms cubic-bezier(.76, 0, .24, 1), opacity 450ms ease;
+    transition: transform 800ms cubic-bezier(.76, 0, .24, 1), opacity 500ms ease 500ms;
   }
   #boot-hud[data-presentation="revealing"] #boot-gauge,
   #boot-hud[data-presentation="revealing"] .boot-counter { transform: translate3d(0, -35vh, 0); opacity: 0; }
@@ -90,6 +91,14 @@
   }
   #boot-gauge { position: relative; width: min(560px, 76vw); }
   #boot-bar { display: block; width: 100%; overflow: visible; }
+  .boot-loading-label {
+    position: absolute; top: calc(100% + 28px); left: 0; width: 100%;
+    margin: 0; text-align: center; color: #fff;
+    font-family: var(--font-inter, system-ui), sans-serif;
+    font-size: clamp(24px, 3vw, 40px); font-weight: 500;
+    line-height: 1.2; letter-spacing: .16em;
+  }
+  .boot-loading-dots { letter-spacing: .08em; }
   .boot-counter {
     position: absolute; right: max(6vw, 24px); bottom: max(6vh, 28px);
     display: flex; align-items: flex-start; gap: .1em;
@@ -108,7 +117,7 @@
   #boot-retry:focus-visible { outline: 2px solid #fff; outline-offset: 5px; }
   .boot-sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
   @media (prefers-reduced-motion: reduce) {
-    #boot-curtain, #boot-gauge, .boot-counter, #boot-canvas, #boot-streaks { transition-duration: 180ms; }
+    #boot-curtain, #boot-gauge, .boot-counter, #boot-canvas, #boot-streaks { transition-duration: 180ms; transition-delay: 0ms; }
     .boot-streak { animation: none; }
   }
 </style>

@@ -11,6 +11,7 @@ import TacticalAstronaut from './TacticalAstronaut';
 import MoonScene from './MoonScene';
 import SleepModule from './SleepModule';
 import DistantDebris from './DistantDebris';
+import SonarGrid from './SonarGrid';
 import SceneReady, { AssetProgress, reportBoot } from './SceneReady';
 import {
   HOP_WAYPOINTS,
@@ -342,6 +343,9 @@ const SpaceCanvas = () => {
           this height to make the sequence feel faster or slower to scroll
           through. */}
       <div ref={scrollTrackRef} style={{ height: '520vh' }} />
+      {/* A separate, text-free destination after the moon-ending scene. Its
+          opaque surface deliberately covers the fixed 3D canvas beneath it. */}
+      <SonarGrid />
     </>
   );
 };

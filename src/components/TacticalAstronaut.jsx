@@ -161,16 +161,6 @@ export default function TacticalAstronaut({ phase, position = [0, 0, 0], scale =
       return [targetName, quaternion];
     }));
   }, [astronaut, targetBones]);
-  // Rest LOCAL quaternion for each mapped bone, captured once at load —
-  // used below so the seated pose can be built from the bot's own true
-  // bind orientation instead of inheriting whatever the (wrong-shaped)
-  // chair-sit FBX clip put there.
-  const targetRestLocal = useMemo(() => Object.fromEntries(
-    BONE_ENTRIES.map(([, targetName]) => {
-      const bone = targetBones[targetName];
-      return [targetName, bone ? bone.quaternion.clone() : null];
-    }),
-  ), [targetBones]);
   const poseScratch = useMemo(() => ({
     sourceWorld: new THREE.Quaternion(),
     sourceRestWorldInverse: new THREE.Quaternion(),

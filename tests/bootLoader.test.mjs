@@ -94,7 +94,7 @@ test('a cached scene still shows the loader, holds 100%, then reveals once', () 
     assert.notEqual(h.root.dataset.presentation, 'revealing');
     for (let i = 0; i < 600 && h.root.dataset.presentation !== 'complete'; i++) h.advance(20);
     assert.equal(h.root.dataset.presentation, 'complete');
-    h.advance(500);
+    h.advance(200);
     assert.equal(h.root.dataset.presentation, 'complete');
     h.advance(2500);
     assert.equal(h.revealed(), 1);

@@ -57,11 +57,17 @@ export default function SceneReady({ onReady }) {
         }
       });
       let uploaded = 0;
+      let batchStarted = performance.now();
       for (const texture of textures) {
         if (cancelled) return;
         gl.initTexture(texture);
         reportBoot('preparing', 0.82 + (++uploaded / textures.size) * 0.08);
-        await frame();
+        // Upload small textures together instead of paying a full rendered
+        // frame per texture. Yield after a bounded CPU slice for the loader.
+        if (performance.now() - batchStarted >= 4) {
+          await frame();
+          batchStarted = performance.now();
+        }
       }
       // Include hidden moon/planets/cubes/jetpack in compilation. Restore
       // visibility before yielding so none can flash into another scene.

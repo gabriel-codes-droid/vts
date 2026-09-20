@@ -2,8 +2,8 @@
 // timer alone. A cached load still gets a short, legible opening sequence.
 import { createRollingCounter, DIGIT_INTERVAL, DIGIT_DURATION } from './rollingCounter.js';
 
-const MIN_VISIBLE_MS = 4200;
-const COMPLETION_HOLD_MS = 650;
+const MIN_VISIBLE_MS = 2200;
+const COMPLETION_HOLD_MS = 350;
 const REVEAL_MS = 1000;
 
 export function initBootLoader() {

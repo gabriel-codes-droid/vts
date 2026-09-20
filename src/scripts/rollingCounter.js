@@ -1,5 +1,5 @@
-export const DIGIT_DURATION = 100;
-export const DIGIT_INTERVAL = 120;
+export const DIGIT_DURATION = 45;
+export const DIGIT_INTERVAL = 55;
 
 // Each clipped column owns one two-cell strip. Incoming/outgoing digits
 // share a transform, so they cannot collide or accumulate stale animations.
