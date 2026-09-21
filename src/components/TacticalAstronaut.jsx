@@ -40,36 +40,75 @@ const BONE_MAP = {
 
 const BONE_ENTRIES = Object.entries(BONE_MAP);
 
-// Sci-fi thruster flame for each boot, replacing the jetpack. Two stacked
-// additive cones (a bright core + a softer outer glow) pointed away from the
-// foot's sole like exhaust. Built once per foot and parented directly to the
-// foot bone so it automatically follows the retargeted animation every
-// frame without any manual position updates.
+// A lightweight but layered boot-thruster effect. It uses no texture fetches
+// or particle simulation: a white-hot core, cyan combustion shell, blue plume
+// and a pulsing point light make the exhaust feel physical while it remains
+// cheap enough to keep the cinematic scroll smooth. The assembly is parented
+// directly to each foot bone, so it follows the supplied FBX animation.
 function createBootFlame() {
   const group = new THREE.Group();
+
+  const nozzle = new THREE.Mesh(
+    new THREE.TorusGeometry(0.07, 0.014, 6, 12),
+    new THREE.MeshBasicMaterial({
+      color: '#42cfff', transparent: true, opacity: 0.9,
+      blending: THREE.AdditiveBlending, toneMapped: false, depthWrite: false,
+    }),
+  );
+  nozzle.rotation.x = Math.PI / 2;
+  nozzle.position.y = -0.025;
+
+  const plume = new THREE.Mesh(
+    new THREE.ConeGeometry(0.125, 0.72, 10, 1, true),
+    new THREE.MeshBasicMaterial({
+      color: '#176dff', transparent: true, opacity: 0.25,
+      blending: THREE.AdditiveBlending, toneMapped: false, depthWrite: false,
+      side: THREE.DoubleSide,
+    }),
+  );
+  plume.rotation.x = Math.PI;
+  plume.position.y = -0.37;
+
+  const shell = new THREE.Mesh(
+    new THREE.ConeGeometry(0.086, 0.52, 10, 1, true),
+    new THREE.MeshBasicMaterial({
+      color: '#19d7ff', transparent: true, opacity: 0.54,
+      blending: THREE.AdditiveBlending, toneMapped: false, depthWrite: false,
+      side: THREE.DoubleSide,
+    }),
+  );
+  shell.rotation.x = Math.PI;
+  shell.position.y = -0.27;
+
   const core = new THREE.Mesh(
-    new THREE.ConeGeometry(0.05, 0.3, 8, 1, true),
+    new THREE.ConeGeometry(0.043, 0.36, 8, 1, true),
     new THREE.MeshBasicMaterial({
-      color: '#dff4ff', transparent: true, opacity: 0.95,
+      color: '#f6fdff', transparent: true, opacity: 0.96,
       blending: THREE.AdditiveBlending, toneMapped: false, depthWrite: false,
+      side: THREE.DoubleSide,
     }),
   );
-  const outer = new THREE.Mesh(
-    new THREE.ConeGeometry(0.085, 0.46, 8, 1, true),
-    new THREE.MeshBasicMaterial({
-      color: '#4fb3ff', transparent: true, opacity: 0.5,
-      blending: THREE.AdditiveBlending, toneMapped: false, depthWrite: false,
-    }),
-  );
-  // Cone apex points up by default; flip so the apex points down/away from
-  // the sole, like exhaust trailing behind the foot.
   core.rotation.x = Math.PI;
-  outer.rotation.x = Math.PI;
-  core.position.y = -0.16;
-  outer.position.y = -0.24;
-  group.add(outer, core);
+  core.position.y = -0.20;
+
+  const heatGlow = new THREE.Mesh(
+    new THREE.SphereGeometry(0.095, 10, 8),
+    new THREE.MeshBasicMaterial({
+      color: '#bdf7ff', transparent: true, opacity: 0.4,
+      blending: THREE.AdditiveBlending, toneMapped: false, depthWrite: false,
+    }),
+  );
+  heatGlow.position.y = -0.055;
+  heatGlow.scale.set(1, 0.62, 1);
+
+  const light = new THREE.PointLight('#4acfff', 0, 2.8, 2);
+  light.position.set(0, -0.18, 0);
+  light.castShadow = false;
+
+  group.add(nozzle, plume, shell, core, heatGlow, light);
   group.name = 'bootFlame';
   group.visible = false;
+  group.userData = { nozzle, plume, shell, core, heatGlow, light };
   return group;
 }
 
@@ -224,19 +263,28 @@ export default function TacticalAstronaut({ phase, position = [0, 0, 0], scale =
     if (!group.current) return;
     const t = state.clock.getElapsedTime();
 
-    // Boot flames: visible only for the same window the jetpack used to
-    // cover (launching/flying), with a flicker so it reads as live thrust
-    // rather than a static glued-on shape.
+    // Boot thrusters are only active for launch/flight. The independent
+    // pulses stop the exhaust looking like a static cone while the attached
+    // point lights give the boots and nearby leg armour a cyan lift.
     const thrustActive = phase === 'launching' || phase === 'flying';
     const leftFoot = targetBones['foot_l_059'];
     const rightFoot = targetBones['foot_r_067'];
-    [leftFoot, rightFoot].forEach((foot) => {
+    [leftFoot, rightFoot].forEach((foot, index) => {
       const flame = foot?.getObjectByName('bootFlame');
       if (!flame) return;
       flame.visible = thrustActive;
       if (thrustActive) {
-        const flicker = 0.88 + Math.sin(t * 42 + (foot === leftFoot ? 0 : 1.7)) * 0.06 + Math.random() * 0.08;
-        flame.scale.set(flicker, 1 + Math.random() * 0.15, flicker);
+        const pulse = 0.9 + Math.sin(t * 27 + index * 1.9) * 0.065
+          + Math.sin(t * 53 + index * 0.7) * 0.035;
+        const surge = 1 + Math.sin(t * 17 + index) * 0.09;
+        flame.scale.set(pulse, surge, pulse);
+        flame.userData.plume.scale.set(1 + (surge - 1) * 1.8, 1 + (surge - 1) * 2.4, 1 + (surge - 1) * 1.8);
+        flame.userData.shell.material.opacity = 0.48 + pulse * 0.08;
+        flame.userData.plume.material.opacity = 0.2 + pulse * 0.09;
+        flame.userData.heatGlow.material.opacity = 0.28 + pulse * 0.16;
+        flame.userData.light.intensity = 1.25 + pulse * 0.85;
+      } else {
+        flame.userData.light.intensity = 0;
       }
     });
 

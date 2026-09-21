@@ -69,7 +69,7 @@ export default function SceneReady({ onReady }) {
           batchStarted = performance.now();
         }
       }
-      // Include hidden moon/planets/cubes/jetpack in compilation. Restore
+      // Include hidden moon/planets/cubes/boot thrusters in compilation. Restore
       // visibility before yielding so none can flash into another scene.
       const objects = [];
       scene.traverse(object => {

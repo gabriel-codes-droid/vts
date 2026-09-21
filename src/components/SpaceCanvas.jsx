@@ -146,19 +146,16 @@ const SpaceCanvas = () => {
   const [astronautPhase, setAstronautPhase] = useState('sleeping');
   const scrollProgressRef = useRef(0);
 
-  const [prepared, setPrepared] = useState(false);
   const [ready, setReady] = useState(false);
-  const handleReady = useCallback(() => setPrepared(true), []);
-
-  // Assets can be prepared before the loader's 100% hold/curtain finishes.
-  // Start scroll and drag only after the opening scene has been revealed.
-  useEffect(() => {
-    if (!prepared) return;
-    const reveal = () => setReady(true);
-    if (document.getElementById('boot-hud')?.dataset.revealed === 'true') reveal();
-    window.addEventListener('portfolio:revealed', reveal);
-    return () => window.removeEventListener('portfolio:revealed', reveal);
-  }, [prepared]);
+  // Was two-stage: prepared → wait for BootLoader's 'portfolio:revealed'
+  // event → ready. Removing the loading screen removes whatever dispatches
+  // that event, which would otherwise leave `ready` permanently false and
+  // freeze scrolling/dragging entirely. Now goes straight from the scene
+  // actually being GPU-prepared (SceneReady's onReady) to ready — the real
+  // warm-up work SceneReady does (texture upload, shader compile, GPU fence
+  // sync) is untouched, only the visual loading screen and its event
+  // hand-off are gone.
+  const handleReady = useCallback(() => setReady(true), []);
 
   useEffect(() => {
     if (!ready || !scrollTrackRef.current) return;

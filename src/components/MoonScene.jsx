@@ -1,6 +1,6 @@
 import { useRef, useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
-import { useGLTF } from '@react-three/drei';
+import { Html, useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
 import { isSceneVisible } from './sceneActivity';
 import { PLANET_ROW_SPACING, PLANET_ROW_Y, PLANET_ROW_Z } from './sceneConstants';
@@ -74,7 +74,45 @@ export function MoonModel({ position, targetRadius }) {
 
 // Real GLB planet — loads the actual model from /models and auto-scales it
 // to the requested size so all planets in the row read consistently.
-function PlanetGLB({ position, size, color, modelPath }) {
+function ProjectLabel({ project, size }) {
+  return (
+    <Html
+      position={[0, size + 0.55, 0]}
+      center
+      distanceFactor={8}
+      zIndexRange={[6, 0]}
+      style={{ pointerEvents: 'none', userSelect: 'none' }}
+    >
+      <div
+        style={{
+          width: 172,
+          padding: '9px 11px 8px',
+          color: '#f4fbff',
+          background: 'linear-gradient(110deg, rgba(2, 9, 16, 0.9), rgba(4, 17, 29, 0.56))',
+          border: `1px solid ${project.color}88`,
+          borderLeft: `3px solid ${project.color}`,
+          borderRadius: 3,
+          boxShadow: `0 0 18px ${project.color}2f`,
+          fontFamily: 'Inter, ui-sans-serif, system-ui, sans-serif',
+          letterSpacing: '0.045em',
+          lineHeight: 1.25,
+          textShadow: '0 1px 6px rgba(0, 0, 0, 0.9)',
+          whiteSpace: 'nowrap',
+        }}
+      >
+        <div style={{ color: project.color, fontSize: 8, fontWeight: 700, marginBottom: 3 }}>
+          {project.number} / PROJECT
+        </div>
+        <div style={{ fontSize: 12, fontWeight: 800 }}>{project.title}</div>
+        <div style={{ color: '#afbdc9', fontSize: 9, marginTop: 3, letterSpacing: '0.015em' }}>
+          {project.subtitle}
+        </div>
+      </div>
+    </Html>
+  );
+}
+
+function PlanetGLB({ position, size, color, modelPath, project }) {
   const { scene } = useGLTF(modelPath);
   const groupRef = useRef();
 
@@ -97,10 +135,12 @@ function PlanetGLB({ position, size, color, modelPath }) {
   });
 
   return (
-    <group ref={groupRef} position={position}>
-      <primitive object={scaled} />
-      <pointLight color={color} intensity={0.7} distance={size * 10} />
-
+    <group position={position}>
+      <group ref={groupRef}>
+        <primitive object={scaled} />
+        <pointLight color={color} intensity={0.7} distance={size * 10} />
+      </group>
+      <ProjectLabel project={project} size={size} />
     </group>
   );
 }
@@ -110,24 +150,36 @@ function PlanetGLB({ position, size, color, modelPath }) {
 const PROJECTS = [
   {
     name: 'Healthcare',
+    number: '01',
+    title: 'HEALTHCARE REFERRAL',
+    subtitle: 'React · Node · PostgreSQL',
     color: '#00d4ff',
     modelPath: '/models/alien_planet.glb',
     size: 1.08,
   },
   {
     name: 'DineConnect',
+    number: '02',
+    title: 'DINECONNECT',
+    subtitle: 'React · Firebase · Tailwind',
     color: '#ff6b35',
     modelPath: '/models/lava_planet.glb',
     size: 1.18,
   },
   {
     name: 'Kartz',
+    number: '03',
+    title: 'KARTZ',
+    subtitle: 'React · Firebase · Stripe',
     color: '#a855f7',
     modelPath: '/models/little_planet_earth.glb',
     size: 1.08,
   },
   {
     name: 'Dashboard',
+    number: '04',
+    title: 'DASHBOARD',
+    subtitle: 'React · Node · MongoDB',
     color: '#06b6d4',
     modelPath: '/models/planet_earth.glb',
     size: 1.12,
@@ -154,6 +206,7 @@ export default function MoonScene({ moonPosition, moonRadius, planetsVisible = t
           size={project.size}
           color={project.color}
           modelPath={project.modelPath}
+          project={project}
         />
       ))}
       </group>
