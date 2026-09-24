@@ -1,8 +1,25 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Vector3 } from 'three';
-import { sampleJourney, phaseForProgress } from '../src/components/journey.js';
+import { sampleJourney, phaseForProgress, pacedJourneyProgress } from '../src/components/journey.js';
 import { HOP_WAYPOINTS, MOON_SEAT_POSITION, PLANET_ROW_Z } from '../src/components/sceneConstants.js';
+
+test('slower hopping keeps the scroll playhead continuous, monotonic and complete', () => {
+  assert.equal(pacedJourneyProgress(0), 0);
+  assert.equal(pacedJourneyProgress(1), 1);
+  let previous = 0;
+  for (let i = 0; i <= 1000; i++) {
+    const current = pacedJourneyProgress(i / 1000);
+    assert.ok(current >= previous && current <= 1);
+    assert.ok(current - previous < 0.002);
+    previous = current;
+  }
+  const hopStart = 0.30 / 1.08;
+  const hopEnd = 0.54 / 1.08;
+  assert.ok(hopEnd - hopStart > 0.16);
+  assert.ok(Math.abs(pacedJourneyProgress(hopStart) - 0.30) < 1e-9);
+  assert.ok(Math.abs(pacedJourneyProgress(hopEnd) - 0.46) < 1e-9);
+});
 
 test('the shuttle exits onto three cubes in right-left-right descending order', () => {
   assert.equal(HOP_WAYPOINTS.length, 4);

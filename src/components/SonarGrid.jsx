@@ -1,11 +1,14 @@
 import { useEffect, useRef } from 'react';
+import { rippleOrigin } from './sonarCoordinates';
 
 const TAU = Math.PI * 2;
-const MAX_DPR = 2;
+const MAX_DPR = 1.5;
+const FRAME_INTERVAL = 1000 / 60;
 
 // Decorative canvas background for the post-journey page. It uses short
 // bursts instead of an always-running loop and pauses when off-screen.
 export default function SonarGrid({
+  background = false,
   // Neutral silver-white matches the supplied sonar-grid reference. The
   // alpha-driven resting/wave states create the grey-to-white contrast.
   color = '#e4e4e4',
@@ -34,6 +37,7 @@ export default function SonarGrid({
     let seeded = false;
     let frameId = 0;
     let timerId = 0;
+    let lastDraw = -Infinity;
     let nextPing = performance.now() + pingEvery * 1000;
 
     const addRing = (x, y, born = performance.now()) => {
@@ -47,7 +51,9 @@ export default function SonarGrid({
       const liveRings = ringsRef.current.map(ring => {
         const age = (now - ring.born) / 1000;
         const radius = age * speed;
-        return { ...ring, radius, reach: radius + ringWidth, fade: 1 - age / lifetime };
+        return { ...ring, radius, reach: radius + ringWidth,
+          innerSquared: Math.max(0, radius - ringWidth) ** 2,
+          outerSquared: (radius + ringWidth) ** 2, fade: 1 - age / lifetime };
       });
 
       context.clearRect(0, 0, width, height);
@@ -67,7 +73,9 @@ export default function SonarGrid({
           let energy = 0;
           for (const ring of liveRings) {
             if (Math.abs(x - ring.x) > ring.reach || Math.abs(y - ring.y) > ring.reach) continue;
-            const distance = Math.abs(Math.hypot(x - ring.x, y - ring.y) - ring.radius);
+            const squared = (x - ring.x) ** 2 + (y - ring.y) ** 2;
+            if (squared < ring.innerSquared || squared > ring.outerSquared) continue;
+            const distance = Math.abs(Math.sqrt(squared) - ring.radius);
             if (distance >= ringWidth) continue;
             const t = 1 - distance / ringWidth;
             energy = Math.max(energy, t * t * (3 - 2 * t) * ring.fade);
@@ -80,13 +88,20 @@ export default function SonarGrid({
       }
       context.fill();
 
+      // Batch similarly bright dots: at most 16 fill calls instead of one
+      // per illuminated dot. Radius still varies continuously with the wave.
+      const batches = Array.from({ length: 16 }, () => new Path2D());
       for (let index = 0; index < energized.length; index += 3) {
         const energy = energized[index + 2];
-        context.globalAlpha = baseOpacity + (1 - baseOpacity) * energy;
-        context.beginPath();
-        context.arc(energized[index], energized[index + 1], dotRadius * (1 + amplitude * energy), 0, TAU);
-        context.fill();
+        const path = batches[Math.min(15, Math.floor(energy * 16))];
+        const radius = dotRadius * (1 + amplitude * energy);
+        path.moveTo(energized[index] + radius, energized[index + 1]);
+        path.arc(energized[index], energized[index + 1], radius, 0, TAU);
       }
+      batches.forEach((path, index) => {
+        context.globalAlpha = baseOpacity + (1 - baseOpacity) * ((index + .5) / 16);
+        context.fill(path);
+      });
       context.globalAlpha = 1;
     };
 
@@ -103,6 +118,12 @@ export default function SonarGrid({
         draw(now);
         return;
       }
+      // High-refresh monitors need not run this background at 120–240 Hz.
+      if (now - lastDraw < FRAME_INTERVAL - .5) {
+        frameId = requestAnimationFrame(tick);
+        return;
+      }
+      lastDraw = now;
       if (pingEvery > 0 && now >= nextPing) {
         addRing(width * (.16 + Math.random() * .68), height * (.18 + Math.random() * .64), now);
         nextPing = now + pingEvery * 1000;
@@ -122,7 +143,7 @@ export default function SonarGrid({
     const resize = () => {
       const rect = host.getBoundingClientRect();
       width = Math.max(1, Math.round(rect.width));
-      height = Math.max(1, Math.round(rect.height));
+      height = Math.max(1, Math.round(background ? Math.min(rect.height, window.innerHeight) : rect.height));
       const dpr = Math.min(window.devicePixelRatio || 1, MAX_DPR);
       canvas.width = Math.round(width * dpr);
       canvas.height = Math.round(height * dpr);
@@ -141,10 +162,23 @@ export default function SonarGrid({
     });
     const resizeObserver = new ResizeObserver(resize);
     const onVisibility = () => { if (!document.hidden) wake(); };
+    // Listen without making the decorative canvas intercept links or cards.
+    // Measure the sticky canvas, not the tall section, to keep the ripple
+    // centered under the pointer even after scrolling.
+    const surface = background ? host.closest('.editorial') : host;
+    const onClick = (event) => {
+      if (!visible || document.hidden || reducedMotion.matches || event.detail === 0) return;
+      if (!surface?.contains(event.target)) return;
+      const origin = rippleOrigin(event.clientX, event.clientY, canvas.getBoundingClientRect(), width, height);
+      if (!origin) return;
+      addRing(origin.x, origin.y);
+      wake();
+    };
 
     resizeObserver.observe(host);
     observer.observe(host);
     document.addEventListener('visibilitychange', onVisibility);
+    document.addEventListener('click', onClick, { capture: true, passive: true });
     reducedMotion.addEventListener('change', wake);
     resize();
 
@@ -152,24 +186,28 @@ export default function SonarGrid({
       observer.disconnect();
       resizeObserver.disconnect();
       document.removeEventListener('visibilitychange', onVisibility);
+      document.removeEventListener('click', onClick, true);
       reducedMotion.removeEventListener('change', wake);
       cancelAnimationFrame(frameId);
       window.clearTimeout(timerId);
     };
-  }, [amplitude, baseOpacity, color, dotRadius, pingEvery, ringWidth, spacing, speed]);
+  }, [background, amplitude, baseOpacity, color, dotRadius, pingEvery, ringWidth, spacing, speed]);
 
   return (
     <section
+      className={background ? 'sonar-backdrop' : 'sonar-page'}
       ref={hostRef}
       aria-hidden="true"
       style={{
-        position: 'relative', zIndex: 1, minHeight: '100svh', overflow: 'hidden',
+        position: background ? 'absolute' : 'relative', inset: background ? 0 : undefined,
+        zIndex: background ? 0 : 1, minHeight: background ? undefined : '100svh',
+        pointerEvents: 'none', overflow: 'clip',
         background: 'radial-gradient(ellipse at 50% 50%, #101010 0%, #050505 46%, #000 100%)',
       }}
     >
       <canvas
         ref={canvasRef}
-        style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none' }}
+        style={{ position: background ? 'sticky' : 'absolute', top: 0, display: 'block', width: '100%', height: background ? '100svh' : '100%', pointerEvents: 'none' }}
       />
     </section>
   );

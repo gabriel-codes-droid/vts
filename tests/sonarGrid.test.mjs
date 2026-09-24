@@ -5,10 +5,12 @@ import { readFileSync } from 'node:fs';
 const spaceCanvas = readFileSync(new URL('../src/components/SpaceCanvas.jsx', import.meta.url), 'utf8');
 const sonarGrid = readFileSync(new URL('../src/components/SonarGrid.jsx', import.meta.url), 'utf8');
 
-test('the text-free sonar page begins after the 3D journey scroll track', () => {
-  assert.ok(spaceCanvas.includes("import SonarGrid from './SonarGrid';"));
-  assert.match(spaceCanvas, /height: '520vh'[^]*<SonarGrid\s*\/>/);
-  assert.match(sonarGrid, /minHeight: '100svh'/);
+test('post-journey content shares the sonar background without an empty interstitial', () => {
+  const page = readFileSync(new URL('../src/pages/index.astro', import.meta.url), 'utf8');
+  const outro = readFileSync(new URL('../src/components/PortfolioOutro.jsx', import.meta.url), 'utf8');
+  assert.doesNotMatch(spaceCanvas, /<SonarGrid/);
+  assert.match(page, /<SpaceCanvas[^]*<PortfolioOutro/);
+  assert.match(outro, /<SonarGrid background/);
   assert.match(sonarGrid, /aria-hidden="true"/);
 });
 

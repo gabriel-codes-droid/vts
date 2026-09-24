@@ -12,6 +12,14 @@ export const PHASE_BANDS = [
 ];
 export const clamp = value => Math.min(1, Math.max(0, value));
 export const smooth = value => { const t = clamp(value); return t * t * (3 - 2 * t); };
+// Give the hops 50% more scroll distance while retaining the authored camera,
+// pose and world-path timeline. All consumers receive this same playhead.
+export function pacedJourneyProgress(scroll) {
+  const distance = clamp(scroll) * 1.08;
+  if (distance <= 0.30) return distance;
+  if (distance <= 0.54) return 0.30 + (distance - 0.30) / 1.5;
+  return Math.min(1, distance - 0.08);
+}
 export function phaseForProgress(progress) {
   return PHASE_BANDS.find(band => progress < band.end)?.phase || 'seated';
 }

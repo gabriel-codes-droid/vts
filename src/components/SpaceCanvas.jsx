@@ -5,13 +5,12 @@ import { Suspense, useRef, useState, useEffect, useCallback, Component } from 'r
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import * as THREE from 'three';
-import { phaseForProgress, smooth } from './journey';
+import { phaseForProgress, smooth, pacedJourneyProgress } from './journey';
 import ControlCubeField from './ControlCubeField';
 import TacticalAstronaut from './TacticalAstronaut';
 import MoonScene from './MoonScene';
 import SleepModule from './SleepModule';
 import DistantDebris from './DistantDebris';
-import SonarGrid from './SonarGrid';
 import SceneReady, { AssetProgress, reportBoot } from './SceneReady';
 import {
   HOP_WAYPOINTS,
@@ -145,6 +144,32 @@ const SpaceCanvas = () => {
   const scrollTrackRef = useRef(null);
   const [astronautPhase, setAstronautPhase] = useState('sleeping');
   const scrollProgressRef = useRef(0);
+  const regionRef = useRef(null);
+  const [inView, setInView] = useState(false);
+  const [selectedProject, setSelectedProject] = useState(null);
+  const [preparation, setPreparation] = useState({ progress: 0, error: '' });
+  useEffect(() => {
+    const update = event => setPreparation(previous => ({ ...event.detail, progress: Math.max(previous.progress, event.detail.progress) }));
+    window.addEventListener('portfolio:preparation', update);
+    return () => window.removeEventListener('portfolio:preparation', update);
+  }, []);
+  const dialogRef = useRef(null);
+  useEffect(() => {
+    if (astronautPhase !== 'seated' || !inView) setSelectedProject(null);
+  }, [astronautPhase, inView]);
+  useEffect(() => {
+    if (!selectedProject) return;
+    const previous = document.activeElement;
+    dialogRef.current?.focus();
+    const close = event => { if (event.key === 'Escape') setSelectedProject(null); };
+    window.addEventListener('keydown', close);
+    return () => { window.removeEventListener('keydown', close); previous?.focus?.(); };
+  }, [selectedProject]);
+  useEffect(() => {
+    const observer = new IntersectionObserver(([entry]) => setInView(entry.isIntersecting));
+    if (regionRef.current) observer.observe(regionRef.current);
+    return () => observer.disconnect();
+  }, []);
 
   const [ready, setReady] = useState(false);
   // Was two-stage: prepared → wait for BootLoader's 'portfolio:revealed'
@@ -166,8 +191,9 @@ const SpaceCanvas = () => {
       progress: 1,
       ease: 'none',
       onUpdate: () => {
-        scrollProgressRef.current = playhead.progress;
-        setAstronautPhase(phaseForProgress(playhead.progress));
+        const progress = pacedJourneyProgress(playhead.progress);
+        scrollProgressRef.current = progress;
+        setAstronautPhase(phaseForProgress(progress));
       },
       scrollTrigger: {
         trigger: scrollTrackRef.current,
@@ -190,12 +216,15 @@ const SpaceCanvas = () => {
 
   return (
     <>
-      <div className="fixed inset-0 z-0">
+      <section ref={regionRef} className="space-region" id="space-experience" aria-label="Interactive project journey">
+      <div className="space-stage">
+        {!ready && <div className="space-status" role="status">{preparation.error || 'PREPARING EXPERIENCE'}<progress value={preparation.progress} max="1" aria-label="Preparing the 3D experience" /><span>{Math.floor(preparation.progress * 100)}%</span>{preparation.error && <button onClick={() => window.location.reload()}>Retry experience</button>}</div>}
         <SceneErrorBoundary>
         <Canvas
+          frameloop={!ready || inView ? 'always' : 'never'}
           camera={{ position: [0, 0, 6], fov: 52 }}
-          gl={{ antialias: true, alpha: true }}
-          dpr={[1, 2]}
+          gl={{ antialias: true, alpha: true, powerPreference: 'high-performance' }}
+          dpr={[1, 1.5]}
           style={{
             backgroundColor: '#010103',
             backgroundImage: "url('/images/stars-clean.png')",
@@ -285,6 +314,8 @@ const SpaceCanvas = () => {
               <MoonScene
                 moonPosition={MOON_POSITION}
                 moonRadius={MOON_RADIUS}
+                labelsVisible={astronautPhase === 'seated' && inView}
+                onSelect={setSelectedProject}
                 planetsVisible={
                   astronautPhase === 'flying'
                   || astronautPhase === 'landing'
@@ -322,7 +353,7 @@ const SpaceCanvas = () => {
             dampingFactor={0.04}
           />
 
-          <EffectComposer>
+          <EffectComposer multisampling={0}>
             <Bloom
               luminanceThreshold={0.9}
               luminanceSmoothing={0.9}
@@ -336,13 +367,37 @@ const SpaceCanvas = () => {
 
       </div>
 
+      {selectedProject && (
+        <div className="project-dialog" onClick={() => setSelectedProject(null)}>
+          <section className="project-panel" role="dialog" aria-modal="true" aria-labelledby="project-title" aria-describedby="project-description" onClick={event => event.stopPropagation()} onKeyDown={event => {
+            if (event.key !== 'Tab') return;
+            const controls = event.currentTarget.querySelectorAll('button, a[href]');
+            const first = controls[0], last = controls[controls.length - 1];
+            if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+            else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+          }}>
+            <button ref={dialogRef} onClick={() => setSelectedProject(null)} aria-label="Close project">✕</button>
+            <p className="project-coordinate">PROJECT ARCHIVE / {selectedProject.number}</p>
+            <h2 id="project-title">{selectedProject.title}</h2>
+            <div className="project-detail-section">
+              <h3>Description:</h3>
+              <p id="project-description">{selectedProject.description}</p>
+            </div>
+            <div className="project-detail-section">
+              <h3>Tech Stack:</h3>
+              <ul className="project-tags">{selectedProject.subtitle.split(' · ').map(tech => <li key={tech}>{({ Node: 'Node.js', Tailwind: 'Tailwind CSS' })[tech] || tech}</li>)}</ul>
+            </div>
+            <a className="project-live-link" href={selectedProject.url} target="_blank" rel="noopener noreferrer" aria-label={`View ${selectedProject.name} live project (opens in a new tab)`}>VIEW LIVE PROJECT <span aria-hidden="true">↗</span></a>
+            <div className="project-panel-footer" aria-hidden="true"><span>◈ PROJECT / {selectedProject.number}</span><span>PORTFOLIO SYSTEM</span></div>
+          </section>
+        </div>
+      )}
+
       {/* Scroll track — drives the whole jump/fly/land/sit sequence. Tune
           this height to make the sequence feel faster or slower to scroll
           through. */}
       <div ref={scrollTrackRef} style={{ height: '520vh' }} />
-      {/* A separate, text-free destination after the moon-ending scene. Its
-          opaque surface deliberately covers the fixed 3D canvas beneath it. */}
-      <SonarGrid />
+      </section>
     </>
   );
 };

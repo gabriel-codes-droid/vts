@@ -5,10 +5,12 @@ import * as THREE from 'three';
 
 export function reportBoot(stage, progress, error = '') {
   const hud = document.getElementById('boot-hud');
-  if (!hud) return;
-  hud.dataset.stage = stage;
-  hud.dataset.progress = String(progress);
-  hud.dataset.error = error;
+  if (hud) {
+    hud.dataset.stage = stage;
+    hud.dataset.progress = String(progress);
+    hud.dataset.error = error;
+  }
+  window.dispatchEvent(new CustomEvent('portfolio:preparation', { detail: { stage, progress, error } }));
   window.dispatchEvent(new Event('portfolio:boot'));
 }
 
@@ -16,7 +18,7 @@ export function AssetProgress() {
   const { loaded, total, errors } = useProgress();
   useEffect(() => {
     if (errors.length) reportBoot('error', 0, 'An asset could not load. Reload to retry.');
-    else if (document.getElementById('boot-hud')?.dataset.stage === 'loading') {
+    else if (!document.getElementById('boot-hud') || document.getElementById('boot-hud')?.dataset.stage === 'loading') {
       reportBoot('loading', total ? Math.min(0.8, loaded / total * 0.8) : 0);
     }
   }, [loaded, total, errors]);

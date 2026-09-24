@@ -1,8 +1,14 @@
 ---
 import SpaceCanvas from '../components/SpaceCanvas';
 import Layout from '../layouts/Layout.astro';
+import PortfolioIntro from '../components/PortfolioIntro.astro';
+import PortfolioOutro from '../components/PortfolioOutro';
+import '../styles/editorial.css';
+import '../styles/editorial-refinements.css';
 ---
 
-<Layout title="Gabriel Mandrake | Full Stack Developer">
+<Layout title="MANDRAKE GABRIEL | Full Stack Developer">
+  <PortfolioIntro />
   <SpaceCanvas client:only="react" />
+  <PortfolioOutro client:load />
 </Layout>

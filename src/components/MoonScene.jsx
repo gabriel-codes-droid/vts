@@ -74,16 +74,16 @@ export function MoonModel({ position, targetRadius }) {
 
 // Real GLB planet — loads the actual model from /models and auto-scales it
 // to the requested size so all planets in the row read consistently.
-function ProjectLabel({ project, size }) {
+function ProjectLabel({ project, size, onSelect }) {
   return (
     <Html
       position={[0, size + 0.55, 0]}
       center
       distanceFactor={8}
       zIndexRange={[6, 0]}
-      style={{ pointerEvents: 'none', userSelect: 'none' }}
+      style={{ pointerEvents: 'auto', userSelect: 'none' }}
     >
-      <div
+      <button type="button" className="planet-label" onClick={() => onSelect(project)} aria-label={`View ${project.name} project`}
         style={{
           width: 172,
           padding: '9px 11px 8px',
@@ -107,12 +107,12 @@ function ProjectLabel({ project, size }) {
         <div style={{ color: '#afbdc9', fontSize: 9, marginTop: 3, letterSpacing: '0.015em' }}>
           {project.subtitle}
         </div>
-      </div>
+      </button>
     </Html>
   );
 }
 
-function PlanetGLB({ position, size, color, modelPath, project }) {
+function PlanetGLB({ position, size, color, modelPath, project, labelsVisible, onSelect }) {
   const { scene } = useGLTF(modelPath);
   const groupRef = useRef();
 
@@ -136,11 +136,11 @@ function PlanetGLB({ position, size, color, modelPath, project }) {
 
   return (
     <group position={position}>
-      <group ref={groupRef}>
+      <group ref={groupRef} onClick={labelsVisible ? event => { event.stopPropagation(); onSelect(project); } : undefined}>
         <primitive object={scaled} />
         <pointLight color={color} intensity={0.7} distance={size * 10} />
       </group>
-      <ProjectLabel project={project} size={size} />
+      {labelsVisible && <ProjectLabel project={project} size={size} onSelect={onSelect} />}
     </group>
   );
 }
@@ -150,6 +150,8 @@ function PlanetGLB({ position, size, color, modelPath, project }) {
 const PROJECTS = [
   {
     name: 'Healthcare',
+    url: 'https://healthcare-referral-syst-8e790.web.app/login',
+    description: 'A healthcare referral system connecting clinics and patients. It brings the referral process into a digital workflow, with the aim of reducing back-and-forth communication and making the path to care easier to follow.',
     number: '01',
     title: 'HEALTHCARE REFERRAL',
     subtitle: 'React · Node · PostgreSQL',
@@ -159,6 +161,8 @@ const PROJECTS = [
   },
   {
     name: 'DineConnect',
+    url: 'https://dineconnect-36bc7.web.app/settings',
+    description: 'A food platform connecting people with restaurants through an accessible digital experience. The project focuses on bringing restaurant discovery and the food-service experience together in one approachable interface.',
     number: '02',
     title: 'DINECONNECT',
     subtitle: 'React · Firebase · Tailwind',
@@ -168,6 +172,8 @@ const PROJECTS = [
   },
   {
     name: 'Kartz',
+    url: 'https://kartz-a40d9.web.app/',
+    description: 'An art marketplace for discovering creative work and connecting artists with buyers. It gives artwork a dedicated digital setting, helping visitors explore what artists create and find work that interests them.',
     number: '03',
     title: 'KARTZ',
     subtitle: 'React · Firebase · Stripe',
@@ -177,6 +183,8 @@ const PROJECTS = [
   },
   {
     name: 'Dashboard',
+    url: 'https://personal-management-dash-9b45a.web.app/',
+    description: 'A personal dashboard bringing everyday work and project management into one place. It is designed around a clearer overview of ongoing work, reducing the need to switch between separate tools to stay organized.',
     number: '04',
     title: 'DASHBOARD',
     subtitle: 'React · Node · MongoDB',
@@ -186,7 +194,7 @@ const PROJECTS = [
   },
 ];
 
-export default function MoonScene({ moonPosition, moonRadius, planetsVisible = true }) {
+export default function MoonScene({ moonPosition, moonRadius, planetsVisible = true, labelsVisible = false, onSelect }) {
   const spacing = PLANET_ROW_SPACING;
   const planetY = PLANET_ROW_Y;
 
@@ -207,6 +215,8 @@ export default function MoonScene({ moonPosition, moonRadius, planetsVisible = t
           color={project.color}
           modelPath={project.modelPath}
           project={project}
+          labelsVisible={labelsVisible}
+          onSelect={onSelect}
         />
       ))}
       </group>
