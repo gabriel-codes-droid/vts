@@ -6,7 +6,7 @@ const profiles = [
   { index: '01', name: 'EMAIL', label: 'DIRECT LINE', description: 'Start a conversation about a project or opportunity.', action: 'SEND EMAIL', href: 'mailto:nmandrakegabriel@gmail.com', external: false },
   { index: '02', name: 'GITHUB', label: 'CODE / SYSTEMS', description: 'Explore the code, experiments, and products behind the work.', action: 'OPEN GITHUB', href: 'https://github.com/gabriel-codes-droid', external: true },
   { index: '03', name: 'INSTAGRAM', label: 'VISUAL NOTES', description: 'Follow the visual experiments and ideas outside the portfolio.', action: 'OPEN INSTAGRAM', href: 'https://www.instagram.com/jus__gabriel/?utm_source=ig_web_button_share_sheet', external: true },
-  { index: '04', name: 'SPACE', label: 'PORTFOLIO JOURNEY', description: 'Return to the planets and open a project from its glass panel.', action: 'ENTER SPACE', href: '#space-experience', external: false },
+  { index: '04', name: 'SPACE', label: 'RETURN TO SCENE', description: 'Jump back into the 3D space to explore the planets and project panels.', action: 'OPEN SPACE SCENE', href: '#space-experience', external: false },
 ];
 const technologies = ['React', 'Tailwind CSS', 'TypeScript', 'CSS', 'JavaScript', 'Java', 'C++', 'C', 'Python', 'Node.js', 'Express'];
 function TechIcon({ name }) {
@@ -53,6 +53,8 @@ export default function PortfolioOutro() {
               href={profile.href}
               target={profile.external ? '_blank' : undefined}
               rel={profile.external ? 'noopener noreferrer' : undefined}
+              onMouseEnter={() => setActiveProfile(index)}
+              onFocus={() => setActiveProfile(index)}
               aria-label={`${profile.action}${profile.external ? ' (opens in a new tab)' : ''}`}
               aria-current={active ? 'true' : undefined}
               style={{
