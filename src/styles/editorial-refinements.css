@@ -66,9 +66,6 @@ body.overflow-x-hidden { overflow-x: clip; }
 .hero-copy .role-strip { animation: role-cycle 15s cubic-bezier(.76, 0, .24, 1) infinite; }
 .hero-copy .hero-statement { font-size: 19px; line-height: 1.55; letter-spacing: -.015em; color: #b1b3b3; margin-top: 14px; }
 .hero-actions { display: flex; flex-direction: column; align-items: flex-start; gap: 22px; padding-bottom: 3px; }
-.hero-project-link { display: inline-flex; align-items: center; justify-content: space-between; gap: 64px; font-size: 14px; font-weight: 600; letter-spacing: .04em; border-bottom: 1px solid #c9d2d4; padding: 0 0 13px; }
-.hero-project-link span { font-size: 22px; transition: transform .3s ease; }
-.hero-project-link:hover span { transform: translate(3px, -3px); }
 .editorial .hero-journey-link { display: inline-flex; gap: 18px; font-size: 13px; color: #9da3a5; transition: color .3s; }
 .hero-journey-link:hover { color: #fff; }
 .hero-copy-word { display: inline-block; overflow: clip; vertical-align: top; }
@@ -161,8 +158,7 @@ body.overflow-x-hidden { overflow-x: clip; }
   .capability article, .capability article::before { transition: none; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .hero-project-link span, .hero-journey-link { transition: none; }
-  .hero-project-link:hover span { transform: none; }
+  .hero-journey-link { transition: none; }
 }
 @media (max-width: 800px) {
   .hero-bottom { grid-template-columns: 1fr 1fr; gap: 28px; }
@@ -178,7 +174,6 @@ body.overflow-x-hidden { overflow-x: clip; }
   .hero-copy .role-title { font-size: 17px; }
   .hero-copy .hero-statement { font-size: 17px; }
   .hero-actions { gap: 20px; }
-  .hero-project-link { gap: 56px; }
   .nav-edition { font-size: 9px; }
   .journey-entry { flex-direction: column; align-items: flex-start; gap: 20px; margin-top: 42px; }
   .journey-rule { width: 100%; }

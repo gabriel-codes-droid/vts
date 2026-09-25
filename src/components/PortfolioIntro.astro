@@ -10,13 +10,12 @@ const nameLines = ['N.MANDRAKE', 'GABRIEL'];
     <span class="nav-edition">PORTFOLIO / {new Date().getFullYear()}</span>
   </nav>
   <section class="hero wrap" id="about">
-    <p class="eyebrow">01 / INTRODUCTION</p>
+      <p class="eyebrow">01 / INTRODUCTION</p>
     <h1 class="discipline-title" aria-label="N. Mandrake Gabriel">
       {nameLines.map((name) => <span class="name-line" aria-hidden="true">{Array.from(name).map(letter => <span class="name-letter">{letter}</span>)}</span>)}
     </h1>
     <div class="hero-bottom">
       <div class="hero-actions">
-        <a class="hero-project-link" href="#space-experience">VIEW PROJECTS <span aria-hidden="true">↗</span></a>
         <a class="hero-journey-link" href="#services">Scroll to explore <span aria-hidden="true">↓</span></a>
       </div>
       <div class="hero-copy">
