@@ -36,6 +36,6 @@ export default function PortfolioOutro() {
         </ul>
       </nav>
     </section>
-    <footer className="footer wrap"><div><a className="wordmark" href="#top">MANDRAKE GABRIEL</a><p>Built with Astro / React / Three.js / GSAP.</p></div><a href="#top">BACK TO TOP ↑</a></footer>
+    <footer className="footer wrap"><div><a className="wordmark" href="#top">N.MANDRAKE GABRIEL</a><p>Built with Astro / React / Three.js / GSAP.</p></div><a href="#top">BACK TO TOP ↑</a></footer>
   </div>;
 }

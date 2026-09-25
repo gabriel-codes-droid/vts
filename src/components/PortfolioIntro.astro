@@ -1,17 +1,17 @@
 ---
 import SonarGrid from './SonarGrid';
 const heroStatement = 'Building tools for healthcare, food ordering, and everyday planning.';
-const nameLines = ['MANDRAKE', 'GABRIEL'];
+const nameLines = ['N.MANDRAKE', 'GABRIEL'];
 ---
 <div class="editorial intro-surface" id="top">
   <SonarGrid background baseOpacity={0.09} amplitude={1.1} maxWaveOpacity={0.3} client:load />
   <nav class="site-nav wrap" aria-label="Main navigation">
-    <a class="wordmark monogram" href="#top" aria-label="Mandrake Gabriel — home">MG<span aria-hidden="true">.</span></a>
+    <a class="wordmark monogram" href="#top" aria-label="N. Mandrake Gabriel — home">N.MG<span aria-hidden="true">.</span></a>
     <span class="nav-edition">PORTFOLIO / {new Date().getFullYear()}</span>
   </nav>
   <section class="hero wrap" id="about">
     <p class="eyebrow">01 / INTRODUCTION</p>
-    <h1 class="discipline-title" aria-label="MANDRAKE GABRIEL">
+    <h1 class="discipline-title" aria-label="N. Mandrake Gabriel">
       {nameLines.map((name) => <span class="name-line" aria-hidden="true">{Array.from(name).map(letter => <span class="name-letter">{letter}</span>)}</span>)}
     </h1>
     <div class="hero-bottom">
