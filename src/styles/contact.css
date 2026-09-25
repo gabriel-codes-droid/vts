@@ -33,14 +33,24 @@
   transition: border-color .2s ease;
 }
 
-.contact-email > span:first-child {
+.contact-email-address {
   min-width: 0;
   overflow-wrap: anywhere;
 }
 
 .contact-email .contact-arrow {
+  display: grid;
+  place-items: center;
+  min-width: 44px;
+  min-height: 44px;
   flex-shrink: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
   font-size: .8em;
+  cursor: pointer;
   transition: transform .2s ease;
 }
 
@@ -48,7 +58,7 @@
   border-bottom-color: #f3f3f0;
 }
 
-.contact-email:hover .contact-arrow {
+.contact-email .contact-arrow:hover {
   transform: translate(3px, -3px);
 }
 
@@ -413,7 +423,7 @@
     transition: none;
   }
 
-  .contact-email:hover .contact-arrow {
+  .contact-email .contact-arrow:hover {
     transform: none;
   }
 

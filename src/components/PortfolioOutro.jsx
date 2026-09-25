@@ -66,10 +66,18 @@ export default function PortfolioOutro() {
       <p className="eyebrow">05 / LET’S TALK</p>
       <h2 id="contact-heading">LET’S BUILD<br/>SOMETHING.</h2>
       <p className="contact-intro">Have a project in mind? Let’s talk about it.</p>
-      <a className="contact-email" href="mailto:nmandrakegabriel@gmail.com">
-        <span>nmandrakegabriel<wbr/>@gmail.com</span>
-        <span className="contact-arrow" aria-hidden="true">↗</span>
-      </a>
+      <div className="contact-email">
+        <a className="contact-email-address" href="mailto:nmandrakegabriel@gmail.com">nmandrakegabriel<wbr/>@gmail.com</a>
+        <button
+          type="button"
+          className="contact-arrow"
+          onClick={() => openCompose(0)}
+          aria-label="Open message composer"
+          aria-haspopup="dialog"
+          aria-expanded={composeOpen}
+          aria-controls={composeOpen ? 'contact-compose-dialog' : undefined}
+        ><span aria-hidden="true">↗</span></button>
+      </div>
       <div
         className="contact-card-stack"
         role="region"
@@ -146,7 +154,7 @@ export default function PortfolioOutro() {
         role="presentation"
         onMouseDown={event => { if (event.target === event.currentTarget) setComposeOpen(false); }}
       >
-        <div className="compose-dialog" role="dialog" aria-modal="true" aria-labelledby="compose-heading">
+        <div id="contact-compose-dialog" className="compose-dialog" role="dialog" aria-modal="true" aria-labelledby="compose-heading">
           <div className="compose-header">
             <div><p className="compose-kicker">DIRECT LINE / RESEND</p><h3 id="compose-heading">SEND A MESSAGE</h3></div>
             <button type="button" className="compose-close" onClick={() => setComposeOpen(false)} aria-label="Close message form">×</button>
