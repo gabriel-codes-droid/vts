@@ -61,9 +61,10 @@ body.overflow-x-hidden { overflow-x: clip; }
 .hero .discipline-title .name-letter { display: inline-block; }
 .hero-bottom { display: grid; grid-template-columns: 1fr minmax(300px, 420px); gap: 64px; align-items: end; }
 .hero-copy { margin: 0; max-width: 420px; }
-.hero-copy .role-title { display: flex; align-items: baseline; gap: .28em; font-size: 20px; font-weight: 500; line-height: 1.25; letter-spacing: -.02em; margin: 0; }
-.hero-copy .role-window { display: block; width: 8.15em; height: 1.25em; overflow: hidden; flex: 0 0 auto; }
-.hero-copy .role-strip { animation: role-cycle 15s cubic-bezier(.76, 0, .24, 1) infinite; }
+.hero-copy .role-title { display: flex; align-items: baseline; gap: .08em; font-size: 20px; font-weight: 500; line-height: 1.25; letter-spacing: -.02em; margin: 0; }
+.hero-copy .role-window { display: block; width: 6.8em; height: 1.25em; overflow: hidden; flex: 0 0 auto; }
+.hero-copy .role-strip { align-items: flex-end; animation: role-cycle 15s cubic-bezier(.76, 0, .24, 1) infinite; }
+.hero-copy .role-strip > span { width: 100%; text-align: right; }
 .hero-copy .hero-statement { font-size: 19px; line-height: 1.55; letter-spacing: -.015em; color: #b1b3b3; margin-top: 14px; }
 .hero-actions { display: flex; flex-direction: column; align-items: flex-start; gap: 22px; padding-bottom: 3px; }
 .editorial .hero-journey-link { display: inline-flex; gap: 18px; font-size: 13px; color: #9da3a5; transition: color .3s; }
@@ -163,7 +164,7 @@ body.overflow-x-hidden { overflow-x: clip; }
 @media (max-width: 800px) {
   .hero-bottom { grid-template-columns: 1fr 1fr; gap: 28px; }
   .hero-copy .role-title { font-size: 17px; }
-  .hero-copy .role-window { width: 8.15em; }
+  .hero-copy .role-window { width: 6.8em; }
   .hero-copy .hero-statement { font-size: 17px; }
 }
 @media (max-width: 600px) {

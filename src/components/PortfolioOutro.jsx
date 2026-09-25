@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import SonarGrid from './SonarGrid';
 import '../styles/contact.css';
 
@@ -14,6 +15,9 @@ function TechIcon({ name }) {
   return <svg viewBox="0 0 40 40" aria-hidden="true"><rect x="2" y="2" width="36" height="36" rx="7" fill="none" stroke="currentColor"/><text x="20" y="26" textAnchor="middle" fontSize="14" fontFamily="monospace" fill="currentColor">{({ React: '⚛', 'Tailwind CSS': '≈', TypeScript: 'TS', JavaScript: 'JS', Python: 'Py', 'Node.js': 'JS', Express: 'ex' })[name] || name}</text></svg>;
 }
 export default function PortfolioOutro() {
+  const [activeProfile, setActiveProfile] = useState(0);
+  const moveProfile = (direction) => setActiveProfile(current => (current + direction + profiles.length) % profiles.length);
+
   return <div className="editorial lower-content">
     <SonarGrid background />
     <section aria-labelledby="tech-heading"><div className="wrap"><p className="eyebrow">04 / TECH STACK</p><h2 id="tech-heading">TOOLS I BUILD WITH.</h2></div>
@@ -27,21 +31,62 @@ export default function PortfolioOutro() {
         <span>nmandrakegabriel<wbr/>@gmail.com</span>
         <span className="contact-arrow" aria-hidden="true">↗</span>
       </a>
-      <div className="contact-card-grid" aria-label="Contact links">
-        {profiles.map(profile => <a
-          key={profile.name}
-          className="contact-card"
-          href={profile.href}
-          target={profile.external ? '_blank' : undefined}
-          rel={profile.external ? 'noopener noreferrer' : undefined}
-          aria-label={`${profile.action}${profile.external ? ' (opens in a new tab)' : ''}`}
-        >
-          <span className="contact-card-top"><span>{profile.index}</span><span aria-hidden="true">↗</span></span>
-          <span className="contact-card-label">{profile.label}</span>
-          <strong>{profile.name}</strong>
-          <span className="contact-card-description">{profile.description}</span>
-          <span className="contact-card-action">{profile.action}</span>
-        </a>)}
+      <div
+        className="contact-card-stack"
+        role="region"
+        aria-label="Contact links"
+        tabIndex="0"
+        onKeyDown={event => {
+          if (event.key === 'ArrowLeft') { event.preventDefault(); moveProfile(-1); }
+          if (event.key === 'ArrowRight') { event.preventDefault(); moveProfile(1); }
+        }}
+      >
+        <div className="contact-card-stage">
+          {profiles.map((profile, index) => {
+            let offset = (index - activeProfile + profiles.length) % profiles.length;
+            if (offset > Math.floor(profiles.length / 2)) offset -= profiles.length;
+            const active = offset === 0;
+            const distance = Math.abs(offset);
+            return <a
+              key={profile.name}
+              className={`contact-card${active ? ' is-active' : ''}`}
+              href={profile.href}
+              target={profile.external ? '_blank' : undefined}
+              rel={profile.external ? 'noopener noreferrer' : undefined}
+              aria-label={`${profile.action}${profile.external ? ' (opens in a new tab)' : ''}`}
+              aria-current={active ? 'true' : undefined}
+              style={{
+                zIndex: 10 - distance,
+                '--card-x': `${offset * 42}%`,
+                '--card-y': `${distance * 12}px`,
+                '--card-z': `${-distance * 92}px`,
+                '--card-rotate': `${offset * 7}deg`,
+                '--card-scale': active ? '1' : '.9',
+                '--card-opacity': active ? '1' : '.54',
+              }}
+            >
+              <span className="contact-card-top"><span>{profile.index}</span><span aria-hidden="true">↗</span></span>
+              <span className="contact-card-label">{profile.label}</span>
+              <strong>{profile.name}</strong>
+              <span className="contact-card-description">{profile.description}</span>
+              <span className="contact-card-action">{profile.action}</span>
+            </a>;
+          })}
+        </div>
+        <div className="contact-card-controls" aria-label="Contact card navigation">
+          <button type="button" onClick={() => moveProfile(-1)} aria-label="Previous contact card">←</button>
+          <div className="contact-card-dots">
+            {profiles.map((profile, index) => <button
+              key={profile.name}
+              type="button"
+              className={index === activeProfile ? 'is-active' : ''}
+              onClick={() => setActiveProfile(index)}
+              aria-label={`Show ${profile.name}`}
+              aria-pressed={index === activeProfile}
+            />)}
+          </div>
+          <button type="button" onClick={() => moveProfile(1)} aria-label="Next contact card">→</button>
+        </div>
       </div>
     </section>
     <footer className="footer wrap"><div><a className="wordmark" href="#top">N.MANDRAKE GABRIEL</a><p>Built with Astro / React / Three.js / GSAP.</p></div><a href="#top">BACK TO TOP ↑</a></footer>
