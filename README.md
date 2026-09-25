@@ -63,6 +63,10 @@ Open **http://localhost:4321** in your browser to see the result!
 
 ---
 
+## Contact form
+
+The email card opens a Resend-backed compose panel. Copy `.env.example` to `.env`, add a Resend API key, and set `RESEND_FROM_EMAIL` to a verified sender. Build and run the server output with `npm run build` followed by `npm start`. The visible email address remains a `mailto:` fallback when the form service is unavailable.
+
 ## 🌐 Live Demo
 
 Feel free to explore the interactive live website!

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import SonarGrid from './SonarGrid';
 import '../styles/contact.css';
 
@@ -15,7 +15,47 @@ function TechIcon({ name }) {
 }
 export default function PortfolioOutro() {
   const [activeProfile, setActiveProfile] = useState(0);
+  const [composeOpen, setComposeOpen] = useState(false);
+  const [composeState, setComposeState] = useState('idle');
   const moveProfile = (direction) => setActiveProfile(current => (current + direction + profiles.length) % profiles.length);
+  const openCompose = (index) => {
+    setActiveProfile(index);
+    setComposeState('idle');
+    setComposeOpen(true);
+  };
+
+  useEffect(() => {
+    if (!composeOpen) return undefined;
+    const onKeyDown = (event) => {
+      if (event.key === 'Escape') setComposeOpen(false);
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [composeOpen]);
+
+  const submitMessage = async (event) => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const data = new FormData(form);
+    setComposeState('sending');
+    try {
+      const response = await fetch('/api/contact', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: data.get('email'),
+          message: data.get('message'),
+          website: data.get('website'),
+        }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || 'The message could not be sent.');
+      form.reset();
+      setComposeState('sent');
+    } catch {
+      setComposeState('error');
+    }
+  };
 
   return <div className="editorial lower-content">
     <SonarGrid background />
@@ -46,31 +86,43 @@ export default function PortfolioOutro() {
             if (offset > Math.floor(profiles.length / 2)) offset -= profiles.length;
             const active = offset === 0;
             const distance = Math.abs(offset);
-            return <a
-              key={profile.name}
-              className={`contact-card${active ? ' is-active' : ''}`}
-              href={profile.href}
-              target={profile.external ? '_blank' : undefined}
-              rel={profile.external ? 'noopener noreferrer' : undefined}
-              onMouseEnter={() => setActiveProfile(index)}
-              onFocus={() => setActiveProfile(index)}
-              aria-label={`${profile.action}${profile.external ? ' (opens in a new tab)' : ''}`}
-              aria-current={active ? 'true' : undefined}
-              style={{
-                zIndex: 10 - distance,
-                '--card-x': `${offset * 42}%`,
-                '--card-y': `${distance * 12}px`,
-                '--card-z': `${-distance * 92}px`,
-                '--card-rotate': `${offset * 7}deg`,
-                '--card-scale': active ? '1' : '.9',
-                '--card-opacity': active ? '1' : '.54',
-              }}
-            >
+            const style = {
+              zIndex: 10 - distance,
+              '--card-x': `${offset * 42}%`,
+              '--card-y': `${distance * 12}px`,
+              '--card-z': `${-distance * 92}px`,
+              '--card-rotate': `${offset * 7}deg`,
+              '--card-scale': active ? '1' : '.9',
+              '--card-opacity': active ? '1' : '.54',
+            };
+            const cardContent = <>
               <span className="contact-card-top"><span>{profile.index}</span><span aria-hidden="true">↗</span></span>
               <span className="contact-card-label">{profile.label}</span>
               <strong>{profile.name}</strong>
               <span className="contact-card-description">{profile.description}</span>
               <span className="contact-card-action">{profile.action}</span>
+            </>;
+            const cardProps = {
+              key: profile.name,
+              className: `contact-card${active ? ' is-active' : ''}`,
+              onMouseEnter: () => setActiveProfile(index),
+              onFocus: () => setActiveProfile(index),
+              style,
+            };
+            if (profile.name === 'EMAIL') {
+              return <button type="button" {...cardProps} onClick={() => openCompose(index)} aria-label="Compose an email">
+                {cardContent}
+              </button>;
+            }
+            return <a
+              {...cardProps}
+              href={profile.href}
+              target={profile.external ? '_blank' : undefined}
+              rel={profile.external ? 'noopener noreferrer' : undefined}
+              aria-label={`${profile.action}${profile.external ? ' (opens in a new tab)' : ''}`}
+              aria-current={active ? 'true' : undefined}
+            >
+              {cardContent}
             </a>;
           })}
         </div>
@@ -89,6 +141,32 @@ export default function PortfolioOutro() {
           <button type="button" onClick={() => moveProfile(1)} aria-label="Next contact card">→</button>
         </div>
       </div>
+      {composeOpen && <div
+        className="compose-backdrop"
+        role="presentation"
+        onMouseDown={event => { if (event.target === event.currentTarget) setComposeOpen(false); }}
+      >
+        <div className="compose-dialog" role="dialog" aria-modal="true" aria-labelledby="compose-heading">
+          <div className="compose-header">
+            <div><p className="compose-kicker">DIRECT LINE / RESEND</p><h3 id="compose-heading">SEND A MESSAGE</h3></div>
+            <button type="button" className="compose-close" onClick={() => setComposeOpen(false)} aria-label="Close message form">×</button>
+          </div>
+          <p className="compose-intro">Your message will be delivered to Gabriel’s inbox. Replies go directly to your email.</p>
+          <form className="compose-form" onSubmit={submitMessage}>
+            <label htmlFor="compose-email">YOUR EMAIL</label>
+            <input id="compose-email" name="email" type="email" placeholder="you@example.com" autoComplete="email" required />
+            <label htmlFor="compose-message">MESSAGE / PROJECT DETAILS</label>
+            <textarea id="compose-message" name="message" rows="5" minLength="10" maxLength="5000" placeholder="Tell me what you’re building…" required />
+            <input className="compose-honeypot" name="website" tabIndex="-1" autoComplete="off" aria-hidden="true" />
+            <button className="compose-submit" type="submit" disabled={composeState === 'sending'}>
+              {composeState === 'sending' ? 'SENDING…' : 'SEND WITH RESEND ↗'}
+            </button>
+          </form>
+          <a className="compose-fallback" href="mailto:nmandrakegabriel@gmail.com">Open your email app instead ↗</a>
+          {composeState === 'sent' && <p className="compose-feedback is-success" role="status">Message sent. Thanks for reaching out.</p>}
+          {composeState === 'error' && <p className="compose-feedback is-error" role="alert">Resend is not available right now. Use the email app link below instead.</p>}
+        </div>
+      </div>}
     </section>
     <footer className="footer wrap"><div><a className="wordmark" href="#top">N.MANDRAKE GABRIEL</a><p>Built with Astro / React / Three.js / GSAP.</p></div><a href="#top">BACK TO TOP ↑</a></footer>
   </div>;
