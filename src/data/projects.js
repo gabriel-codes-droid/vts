@@ -2,7 +2,7 @@
 export const PROJECTS = [
   {
     name: 'Healthcare',
-    url: 'https://healthcare-referral-syst-8e790.web.app/login',
+    url: 'https://healthcare-referral-syst-8e790.web.app/',
     description: 'A healthcare referral system connecting clinics and patients. It brings the referral process into a digital workflow, with the aim of reducing back-and-forth communication and making the path to care easier to follow.',
     number: '01',
     title: 'HEALTHCARE REFERRAL',
@@ -13,7 +13,7 @@ export const PROJECTS = [
   },
   {
     name: 'DineConnect',
-    url: 'https://dineconnect-36bc7.web.app/settings',
+    url: 'https://dineconnect-36bc7.web.app/',
     description: 'A food platform connecting people with restaurants through an accessible digital experience. The project focuses on bringing restaurant discovery and the food-service experience together in one approachable interface.',
     number: '02',
     title: 'DINECONNECT',
