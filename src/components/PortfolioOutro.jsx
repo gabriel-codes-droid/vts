@@ -2,8 +2,10 @@ import SonarGrid from './SonarGrid';
 import '../styles/contact.css';
 
 const profiles = [
-  { name: 'GitHub', href: 'https://github.com/gabriel-codes-droid' },
-  { name: 'Instagram', href: 'https://www.instagram.com/jus__gabriel/?utm_source=ig_web_button_share_sheet' },
+  { index: '01', name: 'EMAIL', label: 'DIRECT LINE', description: 'Start a conversation about a project or opportunity.', action: 'SEND EMAIL', href: 'mailto:nmandrakegabriel@gmail.com', external: false },
+  { index: '02', name: 'GITHUB', label: 'CODE / SYSTEMS', description: 'Explore the code, experiments, and products behind the work.', action: 'OPEN GITHUB', href: 'https://github.com/gabriel-codes-droid', external: true },
+  { index: '03', name: 'INSTAGRAM', label: 'VISUAL NOTES', description: 'Follow the visual experiments and ideas outside the portfolio.', action: 'OPEN INSTAGRAM', href: 'https://www.instagram.com/jus__gabriel/?utm_source=ig_web_button_share_sheet', external: true },
+  { index: '04', name: 'SPACE', label: 'PORTFOLIO JOURNEY', description: 'Return to the planets and open a project from its glass panel.', action: 'ENTER SPACE', href: '#space-experience', external: false },
 ];
 const technologies = ['React', 'Tailwind CSS', 'TypeScript', 'CSS', 'JavaScript', 'Java', 'C++', 'C', 'Python', 'Node.js', 'Express'];
 function TechIcon({ name }) {
@@ -25,16 +27,22 @@ export default function PortfolioOutro() {
         <span>nmandrakegabriel<wbr/>@gmail.com</span>
         <span className="contact-arrow" aria-hidden="true">↗</span>
       </a>
-      <nav className="contact-profiles" aria-label="Social profiles">
-        <span className="contact-elsewhere">ELSEWHERE</span>
-        <ul>
-          {profiles.map(profile => <li key={profile.name}>
-            <a href={profile.href} target="_blank" rel="noopener noreferrer" aria-label={`${profile.name} (opens in a new tab)`}>
-              {profile.name}<span aria-hidden="true">↗</span>
-            </a>
-          </li>)}
-        </ul>
-      </nav>
+      <div className="contact-card-grid" aria-label="Contact links">
+        {profiles.map(profile => <a
+          key={profile.name}
+          className="contact-card"
+          href={profile.href}
+          target={profile.external ? '_blank' : undefined}
+          rel={profile.external ? 'noopener noreferrer' : undefined}
+          aria-label={`${profile.action}${profile.external ? ' (opens in a new tab)' : ''}`}
+        >
+          <span className="contact-card-top"><span>{profile.index}</span><span aria-hidden="true">↗</span></span>
+          <span className="contact-card-label">{profile.label}</span>
+          <strong>{profile.name}</strong>
+          <span className="contact-card-description">{profile.description}</span>
+          <span className="contact-card-action">{profile.action}</span>
+        </a>)}
+      </div>
     </section>
     <footer className="footer wrap"><div><a className="wordmark" href="#top">N.MANDRAKE GABRIEL</a><p>Built with Astro / React / Three.js / GSAP.</p></div><a href="#top">BACK TO TOP ↑</a></footer>
   </div>;

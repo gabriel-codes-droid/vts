@@ -20,7 +20,10 @@ const nameLines = ['N.MANDRAKE', 'GABRIEL'];
         <a class="hero-journey-link" href="#services">Scroll to explore <span aria-hidden="true">↓</span></a>
       </div>
       <div class="hero-copy">
-        <p class="role-title">FULL-STACK DEVELOPER</p>
+        <p class="role-title" aria-label="Full-stack, backend, frontend, interactive and game developer">
+          <span class="role-window" aria-hidden="true"><span class="role-strip"><span>FULL-STACK</span><span>BACKEND</span><span>FRONTEND</span><span>INTERACTIVE</span><span>GAME</span><span>FULL-STACK</span></span></span>
+          <span>DEVELOPER</span>
+        </p>
         <p class="hero-statement">
           <span class="hero-statement-accessible">{heroStatement}</span>
           <span aria-hidden="true">{heroStatement.split(' ').map((word) => <><span class="hero-copy-word"><span>{word}</span></span>{' '}</>)}</span>

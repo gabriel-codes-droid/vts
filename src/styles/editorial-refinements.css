@@ -61,7 +61,9 @@ body.overflow-x-hidden { overflow-x: clip; }
 .hero .discipline-title .name-letter { display: inline-block; }
 .hero-bottom { display: grid; grid-template-columns: 1fr minmax(300px, 420px); gap: 64px; align-items: end; }
 .hero-copy { margin: 0; max-width: 420px; }
-.hero-copy .role-title { display: block; font-size: 20px; font-weight: 500; line-height: 1.25; letter-spacing: -.02em; margin: 0; }
+.hero-copy .role-title { display: flex; align-items: baseline; gap: .28em; font-size: 20px; font-weight: 500; line-height: 1.25; letter-spacing: -.02em; margin: 0; }
+.hero-copy .role-window { display: block; width: 8.15em; height: 1.25em; overflow: hidden; flex: 0 0 auto; }
+.hero-copy .role-strip { animation: role-cycle 15s cubic-bezier(.76, 0, .24, 1) infinite; }
 .hero-copy .hero-statement { font-size: 19px; line-height: 1.55; letter-spacing: -.015em; color: #b1b3b3; margin-top: 14px; }
 .hero-actions { display: flex; flex-direction: column; align-items: flex-start; gap: 22px; padding-bottom: 3px; }
 .hero-project-link { display: inline-flex; align-items: center; justify-content: space-between; gap: 64px; font-size: 14px; font-weight: 600; letter-spacing: .04em; border-bottom: 1px solid #c9d2d4; padding: 0 0 13px; }
@@ -88,6 +90,14 @@ body.overflow-x-hidden { overflow-x: clip; }
 .journey-entry { display: flex; justify-content: space-between; align-items: center; gap: 28px; margin-top: 64px; }
 .journey-rule { display: block; width: min(42%, 420px); height: 1px; background: #ffffff35; }
 .journey-entry .text-link { margin-top: 0; }
+@keyframes role-cycle {
+  0%, 16% { transform: translateY(0); }
+  20%, 36% { transform: translateY(-16.6667%); }
+  40%, 56% { transform: translateY(-33.3333%); }
+  60%, 76% { transform: translateY(-50%); }
+  80%, 96% { transform: translateY(-66.6667%); }
+  100% { transform: translateY(-83.3333%); }
+}
 .project-dialog { background: rgba(0, 4, 10, .24); }
 .project-panel {
   position: relative;
@@ -157,6 +167,7 @@ body.overflow-x-hidden { overflow-x: clip; }
 @media (max-width: 800px) {
   .hero-bottom { grid-template-columns: 1fr 1fr; gap: 28px; }
   .hero-copy .role-title { font-size: 17px; }
+  .hero-copy .role-window { width: 8.15em; }
   .hero-copy .hero-statement { font-size: 17px; }
 }
 @media (max-width: 600px) {
