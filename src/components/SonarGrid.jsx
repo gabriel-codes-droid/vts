@@ -15,10 +15,11 @@ export default function SonarGrid({
   spacing = 28,
   dotRadius = 1.15,
   baseOpacity = 0.24,
-  pingEvery = 2.35,
+  maxWaveOpacity = 0.38,
+  pingEvery = 6.5,
   speed = 260,
   ringWidth = 88,
-  amplitude = 2.15,
+  amplitude = 1.2,
 }) {
   const hostRef = useRef(null);
   const canvasRef = useRef(null);
@@ -30,6 +31,9 @@ export default function SonarGrid({
     const context = canvas?.getContext('2d');
     if (!host || !canvas || !context) return undefined;
 
+    const restingOpacity = Math.max(0, Math.min(1, Number.isFinite(baseOpacity) ? baseOpacity : 0.24));
+    // A lower wave ceiling must not dim the configured resting grid.
+    const peakOpacity = Math.max(restingOpacity, Math.min(1, Number.isFinite(maxWaveOpacity) ? maxWaveOpacity : 0.38));
     const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
     let width = 1;
     let height = 1;
@@ -64,7 +68,7 @@ export default function SonarGrid({
       const offsetY = (height - (rows - 1) * spacing) / 2;
       const energized = [];
 
-      context.globalAlpha = baseOpacity;
+      context.globalAlpha = restingOpacity;
       context.beginPath();
       for (let column = 0; column < columns; column++) {
         const x = offsetX + column * spacing;
@@ -99,7 +103,7 @@ export default function SonarGrid({
         path.arc(energized[index], energized[index + 1], radius, 0, TAU);
       }
       batches.forEach((path, index) => {
-        context.globalAlpha = baseOpacity + (1 - baseOpacity) * ((index + .5) / 16);
+        context.globalAlpha = restingOpacity + (peakOpacity - restingOpacity) * ((index + .5) / 16);
         context.fill(path);
       });
       context.globalAlpha = 1;
@@ -191,7 +195,7 @@ export default function SonarGrid({
       cancelAnimationFrame(frameId);
       window.clearTimeout(timerId);
     };
-  }, [background, amplitude, baseOpacity, color, dotRadius, pingEvery, ringWidth, spacing, speed]);
+  }, [background, amplitude, baseOpacity, maxWaveOpacity, color, dotRadius, pingEvery, ringWidth, spacing, speed]);
 
   return (
     <section

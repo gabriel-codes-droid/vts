@@ -4,6 +4,7 @@ import { Html, useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
 import { isSceneVisible } from './sceneActivity';
 import { PLANET_ROW_SPACING, PLANET_ROW_Y, PLANET_ROW_Z } from './sceneConstants';
+import { PROJECTS } from '../data/projects.js';
 
 // Solid planet cores occlude the CSS star backdrop. Preserve the authored
 // cloud alpha above them, and use independent materials so fade/compile state
@@ -144,55 +145,6 @@ function PlanetGLB({ position, size, color, modelPath, project, labelsVisible, o
     </group>
   );
 }
-
-// 4 project planets — each slot uses a clean spherical asset and the shared
-// auto-normalize/recenter logic keeps every model on the same gallery line.
-const PROJECTS = [
-  {
-    name: 'Healthcare',
-    url: 'https://healthcare-referral-syst-8e790.web.app/login',
-    description: 'A healthcare referral system connecting clinics and patients. It brings the referral process into a digital workflow, with the aim of reducing back-and-forth communication and making the path to care easier to follow.',
-    number: '01',
-    title: 'HEALTHCARE REFERRAL',
-    subtitle: 'React · Node · PostgreSQL',
-    color: '#00d4ff',
-    modelPath: '/models/alien_planet.glb',
-    size: 1.08,
-  },
-  {
-    name: 'DineConnect',
-    url: 'https://dineconnect-36bc7.web.app/settings',
-    description: 'A food platform connecting people with restaurants through an accessible digital experience. The project focuses on bringing restaurant discovery and the food-service experience together in one approachable interface.',
-    number: '02',
-    title: 'DINECONNECT',
-    subtitle: 'React · Firebase · Tailwind',
-    color: '#ff6b35',
-    modelPath: '/models/lava_planet.glb',
-    size: 1.18,
-  },
-  {
-    name: 'Kartz',
-    url: 'https://kartz-a40d9.web.app/',
-    description: 'An art marketplace for discovering creative work and connecting artists with buyers. It gives artwork a dedicated digital setting, helping visitors explore what artists create and find work that interests them.',
-    number: '03',
-    title: 'KARTZ',
-    subtitle: 'React · Firebase · Stripe',
-    color: '#a855f7',
-    modelPath: '/models/little_planet_earth.glb',
-    size: 1.08,
-  },
-  {
-    name: 'Dashboard',
-    url: 'https://personal-management-dash-9b45a.web.app/',
-    description: 'A personal dashboard bringing everyday work and project management into one place. It is designed around a clearer overview of ongoing work, reducing the need to switch between separate tools to stay organized.',
-    number: '04',
-    title: 'DASHBOARD',
-    subtitle: 'React · Node · MongoDB',
-    color: '#06b6d4',
-    modelPath: '/models/planet_earth.glb',
-    size: 1.12,
-  },
-];
 
 export default function MoonScene({ moonPosition, moonRadius, planetsVisible = true, labelsVisible = false, onSelect }) {
   const spacing = PLANET_ROW_SPACING;
