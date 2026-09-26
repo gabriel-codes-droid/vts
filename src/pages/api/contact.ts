@@ -1,4 +1,5 @@
 import type { APIRoute } from 'astro';
+import { getSecret } from 'astro:env/server';
 
 const recipient = 'nmandrakegabriel@gmail.com';
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -31,12 +32,12 @@ export const POST: APIRoute = async ({ request }) => {
     return Response.json({ error: 'Write a message between 10 and 5,000 characters.' }, { status: 422 });
   }
 
-  const apiKey = import.meta.env.RESEND_API_KEY;
+  const apiKey = getSecret('RESEND_API_KEY');
   if (!apiKey) {
     return Response.json({ error: 'The contact service is not configured yet.' }, { status: 503 });
   }
 
-  const from = import.meta.env.RESEND_FROM_EMAIL || 'Portfolio <onboarding@resend.dev>';
+  const from = getSecret('RESEND_FROM_EMAIL') || 'Portfolio <onboarding@resend.dev>';
   const resendResponse = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: {

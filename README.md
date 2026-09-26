@@ -65,7 +65,9 @@ Open **http://localhost:4321** in your browser to see the result!
 
 ## Contact form
 
-The email card opens a Resend-backed compose panel. Copy `.env.example` to `.env`, add a Resend API key, and set `RESEND_FROM_EMAIL` to a verified sender. Build and run the server output with `npm run build` followed by `npm start`. The visible email address remains a `mailto:` fallback when the form service is unavailable.
+The large email address and arrow open the in-page compose panel. Contact cards are selected by clicking, and their action links open their destinations; the Email card uses `mailto:` to open the visitor's email app. The composer also includes that fallback.
+
+Copy `.env.example` to `.env`, add a Resend API key, and set `RESEND_FROM_EMAIL` to a verified sender. Never commit the key. Secrets are read only on the server at runtime, not embedded in either build bundle. Build and run the server output with `npm run build` followed by `npm start`; the start command loads the local `.env` if present. In production, set `RESEND_API_KEY` and `RESEND_FROM_EMAIL` in the hosting provider's server environment. Pushing code does not configure those secrets on the host. Resend's default `onboarding@resend.dev` sender is for testing to the Resend account owner's email; use a verified domain for production.
 
 ## 🌐 Live Demo
 

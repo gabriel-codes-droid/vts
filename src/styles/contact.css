@@ -18,18 +18,27 @@
 }
 
 .editorial .contact-email {
+  appearance: none;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 24px;
   width: 100%;
   margin-top: 44px;
+  padding-inline: 0;
   padding-block: 24px 30px;
+  border: 0;
   border-bottom: 1px solid #ffffff35;
+  background: transparent;
+  color: inherit;
+  font-family: inherit;
   font-size: clamp(19px, 3.8vw, 54px);
   font-weight: 500;
   line-height: 1.3;
   letter-spacing: -.045em;
+  text-align: left;
+  cursor: pointer;
+  transform: none;
   transition: border-color .2s ease;
 }
 
@@ -58,7 +67,7 @@
   border-bottom-color: #f3f3f0;
 }
 
-.contact-email .contact-arrow:hover {
+.contact-email:hover .contact-arrow {
   transform: translate(3px, -3px);
 }
 
@@ -96,11 +105,37 @@
   transition: transform .7s cubic-bezier(.22, 1, .36, 1), opacity .45s ease, border-color .25s ease, background .25s ease, box-shadow .25s ease;
 }
 
-.editorial button.contact-card {
+.editorial .contact-card-select {
   appearance: none;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
   font: inherit;
   text-align: left;
   cursor: pointer;
+  transform: none;
+}
+
+/* The selection button covers the card; the active destination link sits above it. */
+.contact-card-select::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+}
+
+.editorial .contact-card:has(.contact-card-select:focus-visible) {
+  outline: 2px solid #b8e7ff;
+  outline-offset: 6px;
+}
+
+.editorial .contact-card-select:focus-visible {
+  outline: none;
 }
 
 .contact-card-top {
@@ -138,9 +173,21 @@
 }
 
 .contact-card-action {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  align-self: flex-start;
+  min-height: 44px;
   margin-top: auto;
-  padding-top: 24px;
+  padding-block: 12px;
   color: #e4f6ff;
+}
+
+.contact-card:not(.is-active) .contact-card-action {
+  visibility: hidden;
+  pointer-events: none;
 }
 
 .editorial .contact-card:hover {
@@ -423,7 +470,7 @@
     transition: none;
   }
 
-  .contact-email .contact-arrow:hover {
+  .contact-email:hover .contact-arrow {
     transform: none;
   }
 

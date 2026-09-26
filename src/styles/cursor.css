@@ -1,0 +1,25 @@
+/* A native image cursor stays in sync with the mouse without a render loop.
+   Touch and forced-colors users keep the browser's normal cursor behavior. */
+@media (hover: hover) and (pointer: fine) and (forced-colors: none) {
+  :where(html, body, body *):where(:not(:disabled, :disabled *)) {
+    /* Override component cursors, including styles set by the 3D scene. */
+    cursor: url('/cursor-ring.svg') 32 32, default !important;
+  }
+
+  :where(a[href], button, summary, select, label[for], [role='button'], [role='link'],
+    input[type='button'], input[type='submit'], input[type='reset'],
+    input[type='checkbox'], input[type='radio'], input[type='range'],
+    input[type='color'], input[type='file'], input[type='image']):where(:not(:disabled)),
+  :where(a[href], button, summary, select, label[for], [role='button'], [role='link']):where(:not(:disabled)) *:where(:not(:disabled, :disabled *)) {
+    cursor: url('/cursor-ring.svg') 32 32, pointer !important;
+  }
+
+  /* Keep the text caret for typing and selecting text in editable controls. */
+  :where(input:not([type='button'], [type='submit'], [type='reset'],
+    [type='checkbox'], [type='radio'], [type='range'], [type='color'],
+    [type='file'], [type='image'], [type='hidden']), textarea):where(:not(:disabled)),
+  :where([contenteditable]:not([contenteditable='false']),
+    [contenteditable]:not([contenteditable='false']) *) {
+    cursor: text !important;
+  }
+}

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import SonarGrid from './SonarGrid';
 import '../styles/contact.css';
 
@@ -17,20 +17,37 @@ export default function PortfolioOutro() {
   const [activeProfile, setActiveProfile] = useState(0);
   const [composeOpen, setComposeOpen] = useState(false);
   const [composeState, setComposeState] = useState('idle');
+  const composeRef = useRef(null);
   const moveProfile = (direction) => setActiveProfile(current => (current + direction + profiles.length) % profiles.length);
-  const openCompose = (index) => {
-    setActiveProfile(index);
+  const openCompose = () => {
     setComposeState('idle');
     setComposeOpen(true);
   };
 
   useEffect(() => {
     if (!composeOpen) return undefined;
+    const trigger = document.activeElement;
+    const dialog = composeRef.current;
+    dialog?.querySelector('input[type="email"]')?.focus({ preventScroll: true });
     const onKeyDown = (event) => {
       if (event.key === 'Escape') setComposeOpen(false);
+      if (event.key !== 'Tab' || !dialog) return;
+      const controls = [...dialog.querySelectorAll('button:not(:disabled), input:not([tabindex="-1"]), textarea, a[href]')];
+      const first = controls[0];
+      const last = controls[controls.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last?.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first?.focus();
+      }
     };
     document.addEventListener('keydown', onKeyDown);
-    return () => document.removeEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('keydown', onKeyDown);
+      if (trigger instanceof HTMLElement && trigger.isConnected) trigger.focus({ preventScroll: true });
+    };
   }, [composeOpen]);
 
   const submitMessage = async (event) => {
@@ -66,24 +83,25 @@ export default function PortfolioOutro() {
       <p className="eyebrow">05 / LET’S TALK</p>
       <h2 id="contact-heading">LET’S BUILD<br/>SOMETHING.</h2>
       <p className="contact-intro">Have a project in mind? Let’s talk about it.</p>
-      <div className="contact-email">
-        <a className="contact-email-address" href="mailto:nmandrakegabriel@gmail.com">nmandrakegabriel<wbr/>@gmail.com</a>
-        <button
-          type="button"
-          className="contact-arrow"
-          onClick={() => openCompose(0)}
-          aria-label="Open message composer"
-          aria-haspopup="dialog"
-          aria-expanded={composeOpen}
-          aria-controls={composeOpen ? 'contact-compose-dialog' : undefined}
-        ><span aria-hidden="true">↗</span></button>
-      </div>
+      <button
+        type="button"
+        className="contact-email"
+        onClick={openCompose}
+        aria-label="Write a message to nmandrakegabriel@gmail.com"
+        aria-haspopup="dialog"
+        aria-expanded={composeOpen}
+        aria-controls={composeOpen ? 'contact-compose-dialog' : undefined}
+      >
+        <span className="contact-email-address">nmandrakegabriel<wbr/>@gmail.com</span>
+        <span className="contact-arrow" aria-hidden="true">↗</span>
+      </button>
       <div
         className="contact-card-stack"
         role="region"
         aria-label="Contact links"
         tabIndex="0"
         onKeyDown={event => {
+          if (event.target !== event.currentTarget) return;
           if (event.key === 'ArrowLeft') { event.preventDefault(); moveProfile(-1); }
           if (event.key === 'ArrowRight') { event.preventDefault(); moveProfile(1); }
         }}
@@ -103,35 +121,29 @@ export default function PortfolioOutro() {
               '--card-scale': active ? '1' : '.9',
               '--card-opacity': active ? '1' : '.54',
             };
-            const cardContent = <>
-              <span className="contact-card-top"><span>{profile.index}</span><span aria-hidden="true">↗</span></span>
-              <span className="contact-card-label">{profile.label}</span>
-              <strong>{profile.name}</strong>
-              <span className="contact-card-description">{profile.description}</span>
-              <span className="contact-card-action">{profile.action}</span>
-            </>;
-            const cardProps = {
-              key: profile.name,
-              className: `contact-card${active ? ' is-active' : ''}`,
-              onMouseEnter: () => setActiveProfile(index),
-              onFocus: () => setActiveProfile(index),
-              style,
-            };
-            if (profile.name === 'EMAIL') {
-              return <button type="button" {...cardProps} onClick={() => openCompose(index)} aria-label="Compose an email">
-                {cardContent}
-              </button>;
-            }
-            return <a
-              {...cardProps}
-              href={profile.href}
-              target={profile.external ? '_blank' : undefined}
-              rel={profile.external ? 'noopener noreferrer' : undefined}
-              aria-label={`${profile.action}${profile.external ? ' (opens in a new tab)' : ''}`}
-              aria-current={active ? 'true' : undefined}
-            >
-              {cardContent}
-            </a>;
+            return <article key={profile.name} className={`contact-card${active ? ' is-active' : ''}`} style={style}>
+              <button
+                type="button"
+                className="contact-card-select"
+                onClick={() => setActiveProfile(index)}
+                aria-label={`Select ${profile.name} card`}
+                aria-pressed={active}
+              >
+                <span className="contact-card-top"><span>{profile.index}</span><span aria-hidden="true">↗</span></span>
+                <span className="contact-card-label">{profile.label}</span>
+                <strong>{profile.name}</strong>
+                <span className="contact-card-description">{profile.description}</span>
+              </button>
+              <a
+                className="contact-card-action"
+                href={profile.href}
+                target={profile.external ? '_blank' : undefined}
+                rel={profile.external ? 'noopener noreferrer' : undefined}
+                tabIndex={active ? 0 : -1}
+                aria-hidden={!active}
+                aria-label={`${profile.action}${profile.external ? ' (opens in a new tab)' : ''}`}
+              >{profile.action} <span aria-hidden="true">↗</span></a>
+            </article>;
           })}
         </div>
         <div className="contact-card-controls" aria-label="Contact card navigation">
@@ -154,9 +166,9 @@ export default function PortfolioOutro() {
         role="presentation"
         onMouseDown={event => { if (event.target === event.currentTarget) setComposeOpen(false); }}
       >
-        <div id="contact-compose-dialog" className="compose-dialog" role="dialog" aria-modal="true" aria-labelledby="compose-heading">
+        <div ref={composeRef} id="contact-compose-dialog" className="compose-dialog" role="dialog" aria-modal="true" aria-labelledby="compose-heading">
           <div className="compose-header">
-            <div><p className="compose-kicker">DIRECT LINE / RESEND</p><h3 id="compose-heading">SEND A MESSAGE</h3></div>
+            <div><p className="compose-kicker">DIRECT LINE</p><h3 id="compose-heading">SEND A MESSAGE</h3></div>
             <button type="button" className="compose-close" onClick={() => setComposeOpen(false)} aria-label="Close message form">×</button>
           </div>
           <p className="compose-intro">Your message will be delivered to Gabriel’s inbox. Replies go directly to your email.</p>
@@ -167,12 +179,12 @@ export default function PortfolioOutro() {
             <textarea id="compose-message" name="message" rows="5" minLength="10" maxLength="5000" placeholder="Tell me what you’re building…" required />
             <input className="compose-honeypot" name="website" tabIndex="-1" autoComplete="off" aria-hidden="true" />
             <button className="compose-submit" type="submit" disabled={composeState === 'sending'}>
-              {composeState === 'sending' ? 'SENDING…' : 'SEND WITH RESEND ↗'}
+              {composeState === 'sending' ? 'SENDING…' : 'SEND MESSAGE ↗'}
             </button>
           </form>
           <a className="compose-fallback" href="mailto:nmandrakegabriel@gmail.com">Open your email app instead ↗</a>
           {composeState === 'sent' && <p className="compose-feedback is-success" role="status">Message sent. Thanks for reaching out.</p>}
-          {composeState === 'error' && <p className="compose-feedback is-error" role="alert">Resend is not available right now. Use the email app link below instead.</p>}
+          {composeState === 'error' && <p className="compose-feedback is-error" role="alert">The message could not be sent right now. You can open your email app using the link above.</p>}
         </div>
       </div>}
     </section>
