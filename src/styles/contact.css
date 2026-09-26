@@ -397,15 +397,6 @@
 
 .compose-submit:disabled { cursor: wait; opacity: .65; }
 
-.compose-fallback {
-  display: inline-flex;
-  margin-top: 20px;
-  color: #b8dbe8;
-  font: 11px ui-monospace, SFMono-Regular, Consolas, monospace;
-  text-decoration: underline;
-  text-underline-offset: 4px;
-}
-
 .compose-feedback {
   margin-top: 16px;
   font-size: 13px;

@@ -182,9 +182,8 @@ export default function PortfolioOutro() {
               {composeState === 'sending' ? 'SENDING…' : 'SEND MESSAGE ↗'}
             </button>
           </form>
-          <a className="compose-fallback" href="mailto:nmandrakegabriel@gmail.com">Open your email app instead ↗</a>
           {composeState === 'sent' && <p className="compose-feedback is-success" role="status">Message sent. Thanks for reaching out.</p>}
-          {composeState === 'error' && <p className="compose-feedback is-error" role="alert">The message could not be sent right now. You can open your email app using the link above.</p>}
+          {composeState === 'error' && <p className="compose-feedback is-error" role="alert">The message could not be sent right now. Please try again in a moment.</p>}
         </div>
       </div>}
     </section>
